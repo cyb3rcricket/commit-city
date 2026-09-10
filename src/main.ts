@@ -5,7 +5,7 @@ import { createScene } from "./scene/createScene";
 import { createEnvironment } from "./scene/environment";
 import { createParticles } from "./scene/particles";
 import { createCameraRig } from "./scene/camera";
-import { createCity } from "./scene/city";
+import { createCity, LOT, GAP_X, GAP_Z } from "./scene/city";
 import { createInteraction } from "./scene/interaction";
 import { createSearchUI } from "./ui/search";
 import { createTooltip } from "./ui/tooltip";
@@ -51,6 +51,7 @@ const controls = createControlsUI({
 let currentData: CityData | null = null;
 let building = false;
 let visible = true;
+let loadGen = 0;
 
 const interaction = createInteraction(
   canvas,
@@ -78,6 +79,10 @@ function setMode(mode: "idle" | "loading" | "ready" | "error") {
   document.body.classList.add(`is-${mode}`);
 }
 
+function stillCurrent(gen: number) {
+  return gen === loadGen;
+}
+
 async function loadUser(raw: string, fromUrl = false) {
   const username = raw.trim().replace(/^@/, "");
   if (!username) {
@@ -91,15 +96,27 @@ async function loadUser(raw: string, fromUrl = false) {
   }
   if (building) return;
 
+  const gen = ++loadGen;
   building = true;
+  const started = performance.now();
   search.setUsername(username);
   search.setBusy(true);
   search.cycleLoading(true);
   setMode("loading");
   city.setLoading(true);
+  environment.setFocus(1);
+  environment.setPulse(1);
   tooltip.hide();
   renderSelection(null);
   interaction.clear();
+  stats.hide();
+  controls.hide();
+  controls.setCinematic(false);
+
+  if (!context.quality.reducedMotion) {
+    cameraRig.frameCity(53 * (LOT + GAP_X), 7 * (LOT + GAP_Z), context.quality.isCompact);
+    cameraRig.beginApproach(context.quality.isCompact);
+  }
 
   const fetchPromise = fetchCityData(username);
   if (currentData) {
@@ -110,48 +127,88 @@ async function loadUser(raw: string, fromUrl = false) {
   }
 
   try {
-    const [data] = await Promise.all([
-      fetchPromise,
-      currentData ? wait(context.quality.reducedMotion ? 140 : 780) : wait(280),
-    ]);
-    currentData = data;
-    const size = {
-      width: 0,
-      depth: 0,
-    };
-    city.setDays(data.days, { reducedMotion: context.quality.reducedMotion });
-    Object.assign(size, city.citySize());
-    cameraRig.frameCity(size.width, size.depth, context.quality.isCompact);
-    cameraRig.playIntro(context.quality.isCompact);
+    const data = await fetchPromise;
+    if (!stillCurrent(gen)) return;
+
     if (!context.quality.reducedMotion) {
-      cameraRig.setCinematic(true);
-      controls.setCinematic(true);
+      const elapsed = performance.now() - started;
+      const preRoll = currentData ? 900 : 3000;
+      if (elapsed < preRoll) await wait(preRoll - elapsed);
+    } else if (currentData) {
+      await wait(140);
     }
-    stats.show(deriveStats(data));
-    controls.show();
+    if (!stillCurrent(gen)) return;
+
+    currentData = data;
+    city.setDays(data.days, { reducedMotion: context.quality.reducedMotion });
+    const size = city.citySize();
+    cameraRig.frameCity(size.width, size.depth, context.quality.isCompact);
     window.history.replaceState(
       { user: data.username },
       "",
       `/?user=${encodeURIComponent(data.username)}`,
     );
-    const summary = `${data.totalContributions.toLocaleString("en-US")} contributions. ${deriveStats(data).activeDays} active days. One year of code.`;
+
+    building = false;
+    search.setBusy(false);
+    city.setLoading(false);
+
+    const derived = deriveStats(data);
+    const summary = `${data.totalContributions.toLocaleString("en-US")} contributions. ${derived.activeDays} active days. One year of code.`;
+
+    if (context.quality.reducedMotion) {
+      search.cycleLoading(false);
+      search.setStatus(summary);
+      stats.show(derived);
+      controls.show();
+      setMode("ready");
+      environment.setFocus(0.45);
+      cameraRig.reset();
+      return;
+    }
+
+    await wait(city.constructionDuration() * 1000);
+    if (!stillCurrent(gen)) return;
+    cameraRig.beginHero();
+    await wait(1350);
+    if (!stillCurrent(gen)) return;
+    await wait(900);
+    if (!stillCurrent(gen)) return;
+
+    search.cycleLoading(false);
     search.setStatus(summary);
+    stats.show(derived);
+    controls.show();
     setMode("ready");
+    environment.setFocus(0.62);
+    environment.setPulse(0.08);
+    await wait(700);
+    if (!stillCurrent(gen)) return;
+    cameraRig.beginOrbit();
+    controls.setCinematic(true);
   } catch (error) {
+    if (!stillCurrent(gen)) return;
     const message =
       error instanceof CityRequestError
         ? error.message
         : "Couldn't map that contribution history.";
+    search.cycleLoading(false);
     search.setStatus(message, true);
     setMode(currentData ? "ready" : "error");
+    environment.setFocus(currentData ? 0.45 : 0);
+    if (currentData) {
+      stats.show(deriveStats(currentData));
+      controls.show();
+    }
     if (!fromUrl) {
       city.setLoading(false);
     }
   } finally {
-    city.setLoading(false);
-    search.setBusy(false);
-    search.cycleLoading(false);
-    building = false;
+    if (stillCurrent(gen)) {
+      city.setLoading(false);
+      search.setBusy(false);
+      building = false;
+    }
   }
 }
 
@@ -191,11 +248,18 @@ const loop = () => {
   if (!visible) return;
   const dt = Math.min(0.05, context.clock.getDelta());
   const time = context.clock.elapsedTime;
-  environment.setPulse(document.body.classList.contains("is-loading") ? 1 : 0.12);
+  environment.setPulse(
+    document.body.classList.contains("is-loading") ? 0.85 : 0.08,
+  );
   environment.update(time);
   particles.update(time);
   city.update(time, dt);
   cameraRig.update(dt);
+  const cine = cameraRig.cinematic();
+  if (document.body.classList.contains("is-ready")) {
+    const pressed = document.querySelector("#btn-explore")?.getAttribute("aria-pressed") === "true";
+    if (pressed !== cine) controls.setCinematic(cine);
+  }
   context.render();
 };
 

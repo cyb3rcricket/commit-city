@@ -24,6 +24,9 @@ export function createInteraction(
   let hovered = -1;
   let selected = -1;
   let downIndex = -1;
+  let downX = 0;
+  let downY = 0;
+  let downButton = 0;
 
   const setPointer = (event: PointerEvent) => {
     const rect = canvas.getBoundingClientRect();
@@ -50,12 +53,23 @@ export function createInteraction(
   };
 
   const onDown = (event: PointerEvent) => {
+    downButton = event.button;
+    downX = event.clientX;
+    downY = event.clientY;
     downIndex = pick(event);
   };
 
   const onUp = (event: PointerEvent) => {
+    const dragged =
+      Math.hypot(event.clientX - downX, event.clientY - downY) > 6;
     const index = pick(event);
-    if (index >= 0 && index === downIndex) {
+    if (
+      !dragged &&
+      downButton === 0 &&
+      !event.shiftKey &&
+      index >= 0 &&
+      index === downIndex
+    ) {
       selected = selected === index ? -1 : index;
       city.select(selected);
       handlers.onSelect(selected);

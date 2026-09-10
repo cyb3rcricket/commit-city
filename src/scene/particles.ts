@@ -15,12 +15,12 @@ const vertex = /* glsl */ `
   varying float vAlpha;
   void main() {
     vec3 p = position;
-    p.y = mod(p.y + uTime * (0.12 + aSeed * 0.22) + aSeed * 8.0, 16.0) - 0.4;
-    p.x += sin(uTime * 0.12 + aSeed * 12.0) * 0.35;
+    p.y = mod(p.y + uTime * (0.06 + aSeed * 0.12) + aSeed * 8.0, 16.0) - 0.4;
+    p.x += sin(uTime * 0.08 + aSeed * 12.0) * 0.18;
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
     gl_Position = projectionMatrix * mv;
-    gl_PointSize = uSize * (1.0 + aSeed) * (90.0 / -mv.z);
-    vAlpha = 0.18 + aSeed * 0.55;
+    gl_PointSize = uSize * (0.7 + aSeed * 0.5) * (70.0 / -mv.z);
+    vAlpha = 0.1 + aSeed * 0.32;
   }
 `;
 
@@ -47,9 +47,11 @@ export function createParticles(scene: Scene, quality: QualityProfile): Particle
   const seeds = new Float32Array(count);
 
   for (let i = 0; i < count; i += 1) {
-    positions[i * 3] = (Math.random() - 0.5) * 46;
-    positions[i * 3 + 1] = Math.random() * 16;
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 18;
+    const radius = 14 + Math.random() * 24;
+    const angle = Math.random() * Math.PI * 2;
+    positions[i * 3] = Math.cos(angle) * radius;
+    positions[i * 3 + 1] = 2 + Math.random() * 11;
+    positions[i * 3 + 2] = Math.sin(angle) * radius * 0.42;
     seeds[i] = Math.random();
   }
 
@@ -60,7 +62,7 @@ export function createParticles(scene: Scene, quality: QualityProfile): Particle
   const material = new ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
-      uSize: { value: quality.isCompact ? 0.7 : 1 },
+      uSize: { value: quality.isCompact ? 0.42 : 0.58 },
     },
     vertexShader: vertex,
     fragmentShader: fragment,

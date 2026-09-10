@@ -34,7 +34,7 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
   const scene = new Scene();
   scene.background = new Color(0x050807);
 
-  const camera = new PerspectiveCamera(42, 1, 0.1, 180);
+  const camera = new PerspectiveCamera(38, 1, 0.1, 180);
   camera.position.set(18, 16, 24);
 
   const renderer = new WebGLRenderer({
@@ -45,7 +45,7 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
   });
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 0.98;
   renderer.shadowMap.enabled = false;
   renderer.shadowMap.type = PCFSoftShadowMap;
   renderer.setClearColor(0x050807, 1);

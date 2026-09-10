@@ -1,6 +1,5 @@
 const MESSAGES = [
   "Mapping contributions...",
-  "Tracing commit avenues...",
   "Constructing city...",
   "Building skyline...",
 ];
@@ -60,7 +59,7 @@ export function createSearchUI(): SearchUI {
       loadingTimer = window.setInterval(() => {
         i = (i + 1) % MESSAGES.length;
         status.textContent = MESSAGES[i];
-      }, 900);
+      }, 750);
     },
     onSubmit(handler) {
       submitHandler = handler;

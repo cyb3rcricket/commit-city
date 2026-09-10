@@ -11,6 +11,7 @@ export function createControlsUI(handlers: {
   onCapture: () => void;
 }): ControlsUI {
   const toolbar = document.querySelector<HTMLElement>("#toolbar")!;
+  const hint = document.querySelector<HTMLElement>("#nav-hint");
   const explore = document.querySelector<HTMLButtonElement>("#btn-explore")!;
   const reset = document.querySelector<HTMLButtonElement>("#btn-reset")!;
   const share = document.querySelector<HTMLButtonElement>("#btn-share")!;
@@ -24,9 +25,11 @@ export function createControlsUI(handlers: {
   return {
     show() {
       toolbar.hidden = false;
+      if (hint) hint.hidden = false;
     },
     hide() {
       toolbar.hidden = true;
+      if (hint) hint.hidden = true;
     },
     setCinematic(on: boolean) {
       explore.setAttribute("aria-pressed", String(on));

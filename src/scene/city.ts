@@ -26,6 +26,9 @@ import type { QualityProfile } from "./quality";
 export const LOT = 0.58;
 export const GAP_X = 0.2;
 export const GAP_Z = 0.1;
+export const CONSTRUCT_RISE = 0.58;
+export const CONSTRUCT_WEEK_DELAY = 0.044;
+export const CONSTRUCT_DAY_DELAY = 0.008;
 
 const dummy = new Object3D();
 
@@ -61,6 +64,7 @@ const buildingFragment = /* glsl */ `
   uniform float uHover;
   uniform float uSelected;
   uniform float uConstruct;
+  uniform float uRise;
   uniform vec3 uFogColor;
   uniform float uFogDensity;
   varying vec3 vWorld;
@@ -91,27 +95,31 @@ const buildingFragment = /* glsl */ `
     float lit = step(0.32, hash(cell + vIndex));
     lit *= step(0.15, vLevel);
 
-    vec3 body = mix(vec3(0.018, 0.04, 0.028), vec3(0.04, 0.11, 0.07), vLevel / 4.0);
-    vec3 glass = vec3(0.03, 0.07, 0.055);
-    vec3 emit = mix(vec3(0.06, 0.4, 0.2), vec3(0.2, 0.95, 0.48), vLevel / 4.0);
-    vec3 cyan = vec3(0.55, 0.98, 0.94);
+    vec3 body = mix(vec3(0.007, 0.014, 0.011), vec3(0.016, 0.038, 0.026), vLevel / 4.0);
+    vec3 glass = vec3(0.016, 0.034, 0.028);
+    vec3 emit = mix(vec3(0.04, 0.32, 0.15), vec3(0.14, 0.82, 0.4), vLevel / 4.0);
+    vec3 cyan = vec3(0.45, 0.96, 0.9);
 
-    vec3 color = mix(body, glass, 0.28);
-    color += emit * lit * windowMask * (0.85 + vLevel * 0.2);
-    color += emit * top * 0.18;
-    color += mix(emit, cyan, 0.35) * edge * 0.32;
-    color += emit * rim * 0.1;
+    vec3 color = mix(body, glass, 0.22);
+    color += emit * lit * windowMask * (1.05 + vLevel * 0.22);
+    color += emit * top * 0.28;
+    color += mix(emit, cyan, 0.4) * edge * 0.42;
+    color += emit * rim * 0.12;
 
     float hover = 1.0 - step(0.5, abs(vIndex - uHover));
     float selected = 1.0 - step(0.5, abs(vIndex - uSelected));
-    color += emit * hover * 0.55;
-    color += cyan * selected * 0.45;
-    color += emit * selected * edge * 0.8;
+    color += emit * hover * 0.5;
+    color += cyan * selected * 0.4;
+    color += emit * selected * edge * 0.7;
 
-    float localT = clamp((uConstruct - vDelay) / 0.62, 0.0, 1.0);
-    float birth = smoothstep(0.0, 0.14, localT) * (1.0 - smoothstep(0.18, 0.72, localT));
-    color += emit * birth * 0.55;
-    color += emit * (0.03 + 0.03 * sin(uTime * 1.15 + vIndex * 0.15));
+    float localT = clamp((uConstruct - vDelay) / max(uRise, 0.001), 0.0, 1.0);
+    float birth = smoothstep(0.0, 0.08, localT) * (1.0 - smoothstep(0.1, 0.5, localT));
+    float h01 = vLocal.y + 0.5;
+    float shaft = smoothstep(0.2, 0.0, abs(h01 - mix(-0.05, 1.08, localT)));
+    shaft *= (1.0 - smoothstep(0.72, 1.0, localT)) * step(0.02, localT);
+    color += emit * birth * (0.85 + vLevel * 0.22);
+    color += vec3(0.2, 1.0, 0.52) * shaft * (0.4 + vLevel * 0.16);
+    color += emit * (0.02 + 0.02 * sin(uTime * 1.05 + vIndex * 0.15));
 
     float dist = length(vWorld);
     float fog = 1.0 - exp(-uFogDensity * dist);
@@ -144,8 +152,8 @@ const foundationFragment = /* glsl */ `
   void main() {
     float edge = max(abs(vLocal.x), abs(vLocal.z));
     float ring = smoothstep(0.36, 0.5, edge);
-    vec3 color = mix(vec3(0.03, 0.08, 0.05), vec3(0.06, 0.22, 0.12), vLevel / 4.0);
-    color += vec3(0.12, 0.95, 0.45) * ring * (0.4 + uPulse * 0.7);
+    vec3 color = mix(vec3(0.02, 0.05, 0.035), vec3(0.04, 0.14, 0.08), vLevel / 4.0);
+    color += vec3(0.12, 0.95, 0.45) * ring * (0.28 + uPulse * 0.55);
     gl_FragColor = vec4(color, 0.9);
   }
 `;
@@ -157,7 +165,7 @@ function lotPosition(weekIndex: number, dayIndex: number, weeks: number) {
 }
 
 function easeOutBack(t: number): number {
-  const c1 = 1.12;
+  const c1 = 1.22;
   const c3 = c1 + 1;
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
@@ -179,6 +187,7 @@ export type CitySystem = {
   pick: (raycaster: Raycaster) => number;
   update: (time: number, dt: number) => void;
   citySize: () => { width: number; depth: number };
+  constructionDuration: () => number;
   getDay: (index: number) => ContributionDay | null;
   dispose: () => void;
 };
@@ -209,6 +218,7 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
   let constructTime = 0;
   let loading = false;
   let weeks = 53;
+  let buildDuration = 0;
 
   const box = new BoxGeometry(1, 1, 1);
   const buildingMat = new ShaderMaterial({
@@ -217,8 +227,9 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
       uHover: { value: -1 },
       uSelected: { value: -1 },
       uConstruct: { value: 0 },
+      uRise: { value: CONSTRUCT_RISE },
       uFogColor: { value: new Color(0x050807) },
-      uFogDensity: { value: 0.018 },
+      uFogDensity: { value: 0.02 },
     },
     vertexShader: buildingVertex,
     fragmentShader: buildingFragment,
@@ -272,7 +283,7 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
         void main() {
           float e = max(abs(vUv.x - 0.5), abs(vUv.y - 0.5));
           float frame = smoothstep(0.492, 0.5, e);
-          vec3 color = vec3(0.12, 0.95, 0.45) * frame * 0.8;
+          vec3 color = vec3(0.12, 0.95, 0.45) * frame * 0.45;
           gl_FragColor = vec4(color, frame * 0.9);
         }
       `,
@@ -286,7 +297,7 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
 
   const outline = new LineSegments(
     new EdgesGeometry(new BoxGeometry(1, 0.02, 1)),
-    new LineBasicMaterial({ color: 0x3dff8a, transparent: true, opacity: 0.35 }),
+    new LineBasicMaterial({ color: 0x3dff8a, transparent: true, opacity: 0.2 }),
   );
   outline.position.y = 0.01;
   group.add(outline);
@@ -394,14 +405,20 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
     reverse = Boolean(options.reverse);
     constructTime = 0;
     animating = true;
+    let maxDelay = 0;
 
     for (let i = 0; i < next.length; i += 1) {
       const day = next[i];
       targetHeights[i] = heightForCount(day.contributionCount, ref);
-      const chronological = day.weekIndex * 0.05 + day.dayIndex * 0.008;
+      const chronological =
+        day.weekIndex * CONSTRUCT_WEEK_DELAY + day.dayIndex * CONSTRUCT_DAY_DELAY;
       delays[i] = options.reducedMotion || reverse ? 0 : chronological;
+      maxDelay = Math.max(maxDelay, delays[i]);
       progress[i] = reverse ? 1 : 0;
     }
+    buildDuration = options.reducedMotion
+      ? 0
+      : maxDelay + (reverse ? 0.7 : CONSTRUCT_RISE);
 
     rebuildMeshes(next.length);
     layoutDistrict();
@@ -455,7 +472,8 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
       if (!animating) return;
       constructTime += dt;
       buildingMat.uniforms.uConstruct.value = constructTime;
-      const duration = reverse ? 0.7 : 0.62;
+      buildingMat.uniforms.uRise.value = reverse ? 0.7 : CONSTRUCT_RISE;
+      const duration = reverse ? 0.7 : CONSTRUCT_RISE;
       let done = 0;
       for (let i = 0; i < days.length; i += 1) {
         const local = (constructTime - delays[i]) / duration;
@@ -472,6 +490,9 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
         width: weeks * (LOT + GAP_X),
         depth: 7 * (LOT + GAP_Z),
       };
+    },
+    constructionDuration() {
+      return buildDuration;
     },
     getDay(index: number) {
       return days[index] ?? null;
