@@ -127,9 +127,16 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
 
   return {
     setPulse(value: number) {
-      groundMat.uniforms.uPulse.value = value;
+      groundMat.uniforms.uPulse.value = quality.reducedMotion ? 0 : value;
     },
     update(time: number) {
+      if (quality.reducedMotion) {
+        groundMat.uniforms.uTime.value = 0;
+        groundMat.uniforms.uPulse.value = 0;
+        key.intensity = 16;
+        fill.intensity = 7;
+        return;
+      }
       groundMat.uniforms.uTime.value = time;
       key.intensity = 16 + Math.sin(time * 0.35) * 2.4;
       fill.intensity = 7 + Math.cos(time * 0.22) * 1.4;

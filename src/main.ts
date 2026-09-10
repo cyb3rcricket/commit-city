@@ -26,9 +26,8 @@ const tooltip = createTooltip();
 const stats = createStatsUI();
 const controls = createControlsUI({
   onExplore: () => {
-    const next = !cameraRig.cinematic();
-    cameraRig.setCinematic(next);
-    controls.setCinematic(next);
+    cameraRig.setCinematic(!cameraRig.cinematic());
+    controls.setCinematic(cameraRig.cinematic());
   },
   onReset: () => {
     cameraRig.setCinematic(false);

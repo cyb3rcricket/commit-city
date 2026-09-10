@@ -135,37 +135,29 @@ export type DerivedStats = {
 };
 
 export function deriveStats(data: CityData): DerivedStats {
+  const chronological = [...data.days].sort((a, b) => a.date.localeCompare(b.date));
   let activeDays = 0;
   let busiestDay: ContributionDay | null = null;
   let longestStreak = 0;
-  let currentRun = 0;
-  let trailingStreak = 0;
-  let stillTrailing = true;
+  let run = 0;
 
-  for (let i = 0; i < data.days.length; i += 1) {
-    const day = data.days[i];
+  for (const day of chronological) {
     if (day.contributionCount > 0) {
       activeDays += 1;
-      currentRun += 1;
-      longestStreak = Math.max(longestStreak, currentRun);
-      if (stillTrailing) trailingStreak += 1;
-      if (
-        !busiestDay ||
-        day.contributionCount > busiestDay.contributionCount
-      ) {
+      run += 1;
+      longestStreak = Math.max(longestStreak, run);
+      if (!busiestDay || day.contributionCount > busiestDay.contributionCount) {
         busiestDay = day;
       }
     } else {
-      currentRun = 0;
-      if (i < data.days.length - 1) {
-        stillTrailing = false;
-        trailingStreak = 0;
-      }
+      run = 0;
     }
   }
 
-  if (data.days.length > 0 && data.days[data.days.length - 1].contributionCount === 0) {
-    trailingStreak = 0;
+  let currentStreak = 0;
+  for (let i = chronological.length - 1; i >= 0; i -= 1) {
+    if (chronological[i].contributionCount > 0) currentStreak += 1;
+    else break;
   }
 
   return {
@@ -175,7 +167,7 @@ export function deriveStats(data: CityData): DerivedStats {
     activeDays,
     busiestDay,
     longestStreak,
-    currentStreak: trailingStreak,
+    currentStreak,
     source: data.source,
   };
 }

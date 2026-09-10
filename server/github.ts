@@ -41,10 +41,20 @@ function levelFromGraphql(value: string): ContributionLevel {
   }
 }
 
-function parseCount(label: string): number {
-  if (/no contributions/i.test(label)) return 0;
-  const match = label.match(/(\d+)\s+contribution/i);
-  return match ? Number(match[1]) : 0;
+export class ContributionParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ContributionParseError";
+  }
+}
+
+export function parseCount(label: string): number | null {
+  const text = label.replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  if (/no contributions/i.test(text)) return 0;
+  const match = text.match(/(\d+)\s+contributions?/i);
+  if (!match) return null;
+  return Number(match[1]);
 }
 
 export class GithubLookupError extends Error {
@@ -205,7 +215,15 @@ export async function fetchViaHtml(username: string): Promise<CityData> {
   }
 
   const html = await response.text();
-  const parsed = parseContributionHtml(html);
+  let parsed: ReturnType<typeof parseContributionHtml>;
+  try {
+    parsed = parseContributionHtml(html);
+  } catch (error) {
+    if (error instanceof ContributionParseError) {
+      throw new GithubLookupError("unavailable", error.message, 502);
+    }
+    throw error;
+  }
   if (parsed.length === 0) {
     throw new GithubLookupError(
       "unavailable",
@@ -227,9 +245,9 @@ export async function fetchViaHtml(username: string): Promise<CityData> {
 export function parseContributionHtml(
   html: string,
 ): Array<{ date: string; contributionCount: number; level: ContributionLevel }> {
-  const counts = new Map<string, number>();
+  const counts = new Map<string, number | null>();
   const tipRe =
-    /<tool-tip[^>]*for="(contribution-day-component-\d+-\d+)"[^>]*>([^<]*)/gi;
+    /<tool-tip[^>]*\bfor="(contribution-day-component-\d+-\d+)"[^>]*>([\s\S]*?)<\/tool-tip>/gi;
   for (const match of html.matchAll(tipRe)) {
     counts.set(match[1], parseCount(match[2]));
   }
@@ -247,10 +265,23 @@ export function parseContributionHtml(
     const date = match[1];
     if (seen.has(date)) continue;
     seen.add(date);
-    const id = tag.match(/id="(contribution-day-component-\d+-\d+)"/)?.[1];
-    const level = clampLevel(Number(tag.match(/data-level="(\d+)"/)?.[1] ?? 0));
-    const contributionCount =
-      (id ? counts.get(id) : undefined) ?? (level === 0 ? 0 : level * 3);
+    const id = tag.match(/\bid="(contribution-day-component-\d+-\d+)"/)?.[1];
+    const level = clampLevel(Number(tag.match(/\bdata-level="(\d+)"/)?.[1] ?? 0));
+    const fromTip = id ? counts.get(id) : undefined;
+
+    let contributionCount: number;
+    if (fromTip == null) {
+      if (level === 0) {
+        contributionCount = 0;
+      } else {
+        throw new ContributionParseError(
+          "GitHub calendar HTML is missing exact contribution counts.",
+        );
+      }
+    } else {
+      contributionCount = fromTip;
+    }
+
     days.push({ date, contributionCount, level });
   }
 

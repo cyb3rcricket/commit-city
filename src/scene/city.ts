@@ -405,12 +405,13 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
 
     rebuildMeshes(next.length);
     layoutDistrict();
-    stamp(options.reducedMotion && !reverse);
-    if (options.reducedMotion && !reverse) {
-      progress.fill(1);
+    if (options.reducedMotion) {
+      progress.fill(reverse ? 0 : 1);
       animating = false;
       stamp(true);
+      return;
     }
+    stamp(false);
   };
 
   configureDays(emptyDays, { reducedMotion: true });
@@ -438,6 +439,13 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
       return hits[0].instanceId ?? -1;
     },
     update(time: number, dt: number) {
+      if (quality.reducedMotion) {
+        buildingMat.uniforms.uTime.value = 0;
+        beaconMat.uniforms.uTime.value = 0;
+        foundationMat.uniforms.uPulse.value = 0.08;
+        (district.material as ShaderMaterial).uniforms.uTime.value = 0;
+        return;
+      }
       buildingMat.uniforms.uTime.value = time;
       beaconMat.uniforms.uTime.value = time;
       const pulse = loading ? 0.45 + 0.55 * Math.abs(Math.sin(time * 1.4)) : 0.08;
@@ -447,7 +455,7 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
       if (!animating) return;
       constructTime += dt;
       buildingMat.uniforms.uConstruct.value = constructTime;
-      const duration = quality.reducedMotion ? 0.12 : reverse ? 0.7 : 0.62;
+      const duration = reverse ? 0.7 : 0.62;
       let done = 0;
       for (let i = 0; i < days.length; i += 1) {
         const local = (constructTime - delays[i]) / duration;

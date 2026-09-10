@@ -22,6 +22,7 @@ http://localhost:5173/?user=torvalds
 ## Production build
 
 ```bash
+npm test
 npm run build
 npm run preview
 ```

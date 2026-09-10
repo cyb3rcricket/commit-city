@@ -15,7 +15,7 @@
     "noFallthroughCasesInSwitch": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "types": ["vite/client"]
+    "types": ["vite/client", "vitest/globals"]
   },
-  "include": ["src", "server", "api", "shared", "vite.config.ts"]
+  "include": ["src", "server", "api", "shared", "tests", "vite.config.ts", "vitest.config.ts"]
 }
