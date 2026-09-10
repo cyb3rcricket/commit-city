@@ -22,6 +22,7 @@ describe("parseCount", () => {
     expect(parseCount("No contributions on September 7th.")).toBe(0);
     expect(parseCount("1 contribution on January 1st.")).toBe(1);
     expect(parseCount("21 contributions on September 9th.")).toBe(21);
+    expect(parseCount("1,234 contributions on September 9th.")).toBe(1234);
   });
 
   it("does not invent a count from unreadable text", () => {
@@ -116,6 +117,30 @@ describe("parseContributionHtml", () => {
 
   it("returns no days for unrecognized markup instead of inventing counts", () => {
     expect(parseContributionHtml("<div>changed github page</div>")).toEqual([]);
+  });
+
+  it("fails when data-level is missing", () => {
+    const html = calendarHtml(
+      `<td tabindex="0" data-date="2025-09-08" id="contribution-day-component-1-0" role="gridcell" class="ContributionCalendar-day">`,
+      tip("contribution-day-component-1-0", "8 contributions on September 8th."),
+    );
+    expect(() => parseContributionHtml(html)).toThrow(ContributionParseError);
+  });
+
+  it("fails when data-level is malformed", () => {
+    const html = calendarHtml(
+      `<td tabindex="0" data-date="2025-09-08" id="contribution-day-component-1-0" data-level="x" role="gridcell" class="ContributionCalendar-day">`,
+      tip("contribution-day-component-1-0", "8 contributions on September 8th."),
+    );
+    expect(() => parseContributionHtml(html)).toThrow(ContributionParseError);
+  });
+
+  it("fails when a tooltip count is exact but the cell structure is malformed", () => {
+    const html = calendarHtml(
+      `<td tabindex="0" data-date="2025-09-08" id="contribution-day-component-1-0" data-level="12" role="gridcell" class="ContributionCalendar-day">`,
+      tip("contribution-day-component-1-0", "1,234 contributions on September 8th."),
+    );
+    expect(() => parseContributionHtml(html)).toThrow(ContributionParseError);
   });
 
   it("reads exact counts from current GitHub calendar markup", () => {

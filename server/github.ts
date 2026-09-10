@@ -52,9 +52,11 @@ export function parseCount(label: string): number | null {
   const text = label.replace(/\s+/g, " ").trim();
   if (!text) return null;
   if (/no contributions/i.test(text)) return 0;
-  const match = text.match(/(\d+)\s+contributions?/i);
+  const match = text.match(/([0-9,]+)\s+contributions?/i);
   if (!match) return null;
-  return Number(match[1]);
+  const value = Number(match[1].replace(/,/g, ""));
+  if (!Number.isFinite(value)) return null;
+  return value;
 }
 
 export class GithubLookupError extends Error {
@@ -266,7 +268,13 @@ export function parseContributionHtml(
     if (seen.has(date)) continue;
     seen.add(date);
     const id = tag.match(/\bid="(contribution-day-component-\d+-\d+)"/)?.[1];
-    const level = clampLevel(Number(tag.match(/\bdata-level="(\d+)"/)?.[1] ?? 0));
+    const levelRaw = tag.match(/\bdata-level="([^"]*)"/)?.[1];
+    if (levelRaw === undefined || !/^[0-4]$/.test(levelRaw)) {
+      throw new ContributionParseError(
+        "GitHub calendar HTML is missing a valid contribution level.",
+      );
+    }
+    const level = Number(levelRaw) as ContributionLevel;
     const fromTip = id ? counts.get(id) : undefined;
 
     let contributionCount: number;
