@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#050807" />
+    <title>Commit City — Turn your GitHub history into a skyline</title>
+    <meta
+      name="description"
+      content="Enter a GitHub username and turn a year of contributions into a living 3D city."
+    />
+    <meta property="og:title" content="Commit City" />
+    <meta property="og:description" content="See what you've built. Turn GitHub history into a skyline." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/styles/main.css" />
+  </head>
+  <body class="is-idle">
+    <a class="skip-link" href="#username">Skip to username</a>
+    <canvas id="stage" aria-label="3D contribution city"></canvas>
+    <div class="atmosphere" aria-hidden="true">
+      <div class="vignette"></div>
+      <div class="scanlines"></div>
+    </div>
+
+    <div class="ui">
+      <header class="brand">
+        <div class="mark" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <div>
+          <p class="brand-name">Commit City</p>
+          <p class="brand-tag">Turn your GitHub history into a skyline.</p>
+        </div>
+      </header>
+
+      <main class="hero" id="hero">
+        <p class="kicker">Cyberspace cartography</p>
+        <h1>See what you've built.</h1>
+        <p class="lede">
+          Enter a GitHub username and turn a year of contributions into a living 3D city.
+        </p>
+
+        <form id="search-form" class="search" autocomplete="off" action="#" method="post">
+          <label class="field">
+            <span class="sr-only">GitHub username</span>
+            <span class="prefix" aria-hidden="true">github.com/</span>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              inputmode="text"
+              spellcheck="false"
+              autocapitalize="off"
+              autocorrect="off"
+              maxlength="39"
+              placeholder="username"
+              aria-describedby="status-line"
+            />
+          </label>
+          <button type="submit" id="build-btn">Build My City</button>
+        </form>
+
+        <p class="hint">
+          Try
+          <button type="button" class="chip" data-example="torvalds">torvalds</button>
+        </p>
+        <p class="status" id="status-line" role="status" aria-live="polite"></p>
+      </main>
+
+      <aside class="stats" id="stats-panel" hidden>
+        <button type="button" class="stats-toggle" id="stats-toggle" aria-expanded="false">
+          City telemetry
+        </button>
+        <div class="stats-body">
+          <p class="stats-user" id="stat-user"></p>
+          <p class="stats-year" id="stat-year"></p>
+          <dl>
+            <div>
+              <dt>Contributions</dt>
+              <dd id="stat-total">—</dd>
+            </div>
+            <div>
+              <dt>Active days</dt>
+              <dd id="stat-active">—</dd>
+            </div>
+            <div>
+              <dt>Busiest day</dt>
+              <dd id="stat-busy">—</dd>
+            </div>
+            <div>
+              <dt>Longest streak</dt>
+              <dd id="stat-streak">—</dd>
+            </div>
+          </dl>
+          <p class="stats-note" id="stat-note" hidden>Preview data — live GitHub feed unavailable.</p>
+        </div>
+      </aside>
+
+      <div class="selection" id="selection-card" hidden></div>
+
+      <div class="toolbar" id="toolbar" hidden>
+        <button type="button" id="btn-explore" aria-pressed="false">Cinematic View</button>
+        <button type="button" id="btn-reset">Reset Camera</button>
+        <button type="button" id="btn-share">Share City</button>
+        <button type="button" id="btn-capture">Capture Skyline</button>
+      </div>
+    </div>
+
+    <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+    <p class="copy-toast" id="copy-toast" role="status" hidden>Link copied</p>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

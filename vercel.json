@@ -1,0 +1,13 @@
+{
+  "rewrites": [
+    { "source": "/u/:user", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/api/contributions",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=30, s-maxage=60, stale-while-revalidate=300" }
+      ]
+    }
+  ]
+}
