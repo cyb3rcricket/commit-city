@@ -9,6 +9,12 @@ export type QualityProfile = {
   distantLights: number;
   reducedMotion: boolean;
   isCompact: boolean;
+  lowPower: boolean;
+  shafts: number;
+  megaCount: number;
+  atmosphereMotes: number;
+  worldFx: boolean;
+  richSky: boolean;
 };
 
 export function detectQuality(): QualityProfile {
@@ -27,12 +33,18 @@ export function detectQuality(): QualityProfile {
     dpr: Math.min(window.devicePixelRatio || 1, lowPower ? 1.15 : 1.7),
     antialias: !lowPower,
     bloom: !lowPower,
-    bloomStrength: lowPower ? 0 : 0.14,
-    bloomRadius: 0.28,
-    bloomThreshold: 0.86,
-    particles: lowPower ? 110 : 340,
-    distantLights: lowPower ? 80 : 220,
+    bloomStrength: lowPower ? 0 : 0.12,
+    bloomRadius: 0.26,
+    bloomThreshold: 0.88,
+    particles: lowPower ? 90 : 260,
+    distantLights: lowPower ? 40 : 110,
     reducedMotion,
     isCompact,
+    lowPower,
+    shafts: lowPower ? 3 : 4,
+    megaCount: lowPower ? 8 : 14,
+    atmosphereMotes: lowPower ? 28 : 72,
+    worldFx: !lowPower && !reducedMotion,
+    richSky: !lowPower,
   };
 }
