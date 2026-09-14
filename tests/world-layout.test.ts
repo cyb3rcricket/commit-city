@@ -3,20 +3,23 @@ import {
   createMegaSlabs,
   DISTRICT,
   isOutsideDistrict,
+  MEGA_MIN_RADIUS,
+  SCENERY_CLEARANCE,
   SHAFT_ANCHORS,
   shaftAnchorsFor,
 } from "../src/scene/worldLayout";
 
 describe("world scenery layout", () => {
-  it("keeps megastructure slabs outside the contribution district", () => {
+  it("keeps megastructure slabs far outside the contribution district", () => {
     const slabs = createMegaSlabs(20);
     expect(slabs.length).toBe(20);
     for (const slab of slabs) {
-      expect(isOutsideDistrict(slab.x, slab.z)).toBe(true);
+      expect(isOutsideDistrict(slab.x, slab.z, SCENERY_CLEARANCE)).toBe(true);
       expect(
         Math.abs(slab.x) > DISTRICT.halfWidth || Math.abs(slab.z) > DISTRICT.halfDepth,
       ).toBe(true);
-      expect(Math.max(slab.sx, slab.sz)).toBeGreaterThan(2.4);
+      expect(Math.hypot(slab.x, slab.z)).toBeGreaterThanOrEqual(MEGA_MIN_RADIUS);
+      expect(Math.max(slab.sx, slab.sz)).toBeGreaterThan(2.2);
     }
   });
 
@@ -28,16 +31,18 @@ describe("world scenery layout", () => {
 
     const xs = slabs.map((slab) => slab.x).sort((a, b) => a - b);
     const span = xs[xs.length - 1] - xs[0];
-    expect(span).toBeGreaterThan(30);
-    const footprints = slabs.map((slab) => slab.sx * slab.sz);
+    expect(span).toBeGreaterThan(80);
+    const primary = slabs.slice(0, 10);
+    const footprints = primary.map((slab) => slab.sx * slab.sz);
     expect(Math.min(...footprints)).toBeGreaterThan(8);
   });
 
-  it("places light shafts off the contribution lots", () => {
+  it("places light shafts off the contribution lots as distant infrastructure", () => {
     expect(SHAFT_ANCHORS.length).toBeGreaterThanOrEqual(3);
     expect(SHAFT_ANCHORS.length).toBeLessThanOrEqual(5);
     for (const shaft of shaftAnchorsFor(5)) {
-      expect(isOutsideDistrict(shaft.x, shaft.z)).toBe(true);
+      expect(isOutsideDistrict(shaft.x, shaft.z, 8)).toBe(true);
+      expect(Math.hypot(shaft.x, shaft.z)).toBeGreaterThan(40);
     }
   });
 });

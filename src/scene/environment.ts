@@ -31,8 +31,8 @@ import {
   shaftAnchorsFor,
 } from "./worldLayout";
 
-const FOG_COLOR = 0x060a08;
-const FOG_DENSITY = 0.011;
+const FOG_COLOR = 0x040605;
+const FOG_DENSITY = 0.004;
 
 const groundVertex = /* glsl */ `
   varying vec3 vWorld;
@@ -77,40 +77,40 @@ const groundFragment = /* glsl */ `
     float wave = 1.0 - abs(fract((px + 26.0) / 54.0 - uPulse) * 2.0 - 1.0);
     wave = smoothstep(0.35, 1.0, wave);
 
-    vec3 base = vec3(0.016, 0.028, 0.022);
+    vec3 base = vec3(0.006, 0.009, 0.007);
     vec3 green = vec3(0.12, 0.95, 0.45);
     vec3 cyan = vec3(0.55, 0.95, 0.92);
-    float dim = mix(1.0, 0.32, uFocus);
+    float dim = mix(0.72, 0.22, uFocus);
 
     vec3 color = base;
-    color += green * fine * 0.07 * dim;
-    color += mix(green, cyan, 0.35) * coarse * 0.16 * dim;
-    color += green * wave * uPulse * 0.12;
-    color += cyan * pulse * 0.01 * dim;
+    color += green * fine * 0.032 * dim;
+    color += mix(green, cyan, 0.35) * coarse * 0.07 * dim;
+    color += green * wave * uPulse * 0.05;
+    color += cyan * pulse * 0.004 * dim;
 
     float ring = smoothstep(0.22, 0.0, abs(dist - 21.0));
-    color += green * ring * 0.07 * dim;
+    color += green * ring * 0.028 * dim;
 
     float smear = pow(1.0 - saturate(abs(pz) / 3.8), 3.2) * inDistrict;
     smear *= 0.55 + 0.45 * smoothstep(18.0, 4.0, abs(px));
-    color += vec3(0.05, 0.16, 0.1) * smear * 0.55 * dim;
+    color += vec3(0.03, 0.07, 0.05) * smear * 0.16 * dim;
     float glass = pow(1.0 - saturate(abs(pz) * 0.22), 10.0) * inDistrict;
-    color += vec3(0.32, 0.75, 0.58) * glass * 0.05 * dim;
+    color += vec3(0.18, 0.4, 0.32) * glass * 0.016 * dim;
 
-    float pathA = exp(-pow(pz - (8.4 + 0.65 * sin(px * 0.075)), 2.0) * 11.0);
-    float pathB = exp(-pow(pz + (8.9 + 0.5 * cos(px * 0.055)), 2.0) * 11.0);
-    float pathC = exp(-pow(px - (27.8 + 0.35 * sin(pz * 0.18)), 2.0) * 8.0);
-    float ringRoad = exp(-pow(dist - 31.5, 2.0) * 3.2);
-    float highways = (pathA + pathB + pathC * 0.8 + ringRoad * 0.62) * outside;
-    float packet = smoothstep(0.08, 0.0, abs(fract(px * 0.032 - uTime * 0.038) - 0.5));
-    float flow = mix(0.34, 0.34 + packet * 0.7, uMotion);
-    color += green * highways * 0.2 * flow * dim;
-    color += cyan * highways * packet * uMotion * 0.07 * dim;
+    float pathA = exp(-pow(pz - (18.6 + 0.55 * sin(px * 0.06)), 2.0) * 12.0);
+    float pathB = exp(-pow(pz + (19.4 + 0.42 * cos(px * 0.05)), 2.0) * 12.0);
+    float pathC = exp(-pow(px - (44.5 + 0.3 * sin(pz * 0.14)), 2.0) * 9.0);
+    float ringRoad = exp(-pow(dist - 48.5, 2.0) * 3.6);
+    float highways = (pathA + pathB + pathC * 0.7 + ringRoad * 0.5) * outside;
+    float packet = smoothstep(0.07, 0.0, abs(fract(px * 0.028 - uTime * 0.022) - 0.5));
+    float flow = mix(0.22, 0.22 + packet * 0.38, uMotion);
+    color += green * highways * 0.08 * flow * dim;
+    color += cyan * highways * packet * uMotion * 0.028 * dim;
 
     float scanBand = smoothstep(2.2, 0.0, abs(px - uScanX)) * uScan * outside;
-    color += mix(green, cyan, 0.25) * scanBand * 0.08;
+    color += mix(green, cyan, 0.25) * scanBand * 0.035;
 
-    color = min(color, vec3(0.14, 0.24, 0.18));
+    color = min(color, vec3(0.055, 0.09, 0.07));
     gl_FragColor = vec4(color, fade);
   }
 `;
@@ -139,26 +139,26 @@ const skyFragment = /* glsl */ `
   void main() {
     vec3 dir = normalize(vDir);
     float h = dir.y;
-    vec3 zenith = vec3(0.02, 0.034, 0.028);
-    vec3 mid = vec3(0.05, 0.09, 0.07);
-    vec3 horizon = vec3(0.08, 0.15, 0.11);
+    vec3 zenith = vec3(0.01, 0.014, 0.012);
+    vec3 mid = vec3(0.016, 0.024, 0.02);
+    vec3 horizon = vec3(0.024, 0.038, 0.03);
     vec3 color = mix(horizon, mid, smoothstep(-0.14, 0.2, h));
     color = mix(color, zenith, smoothstep(0.16, 0.76, h));
 
     float strata = smoothstep(0.14, 0.0, abs(fract(h * 4.6 + dir.x * 0.18) - 0.5));
-    color += vec3(0.07, 0.2, 0.12) * strata * 0.085 * uRich;
+    color += vec3(0.05, 0.12, 0.08) * strata * 0.04 * uRich;
 
     float columns = smoothstep(0.06, 0.0, abs(fract(dir.x * 3.4) - 0.5));
-    color += vec3(0.05, 0.14, 0.1) * columns * (1.0 - smoothstep(0.05, 0.55, h)) * 0.07 * uRich;
+    color += vec3(0.04, 0.09, 0.07) * columns * (1.0 - smoothstep(0.05, 0.55, h)) * 0.035 * uRich;
 
     float veil = pow(max(0.0, 1.0 - abs(h - 0.02) * 2.8), 2.0);
-    color += vec3(0.05, 0.12, 0.09) * veil * 0.18;
+    color += vec3(0.03, 0.055, 0.042) * veil * 0.07;
 
     float grain = hash(dir.xz * 18.0 + floor(uTime * 0.02 * uMotion));
-    color += vec3(0.04, 0.09, 0.07) * grain * 0.035 * uRich;
+    color += vec3(0.03, 0.055, 0.045) * grain * 0.018 * uRich;
 
     float scan = smoothstep(0.045, 0.0, abs(dir.x - uScanX * 0.012)) * uScan;
-    color += vec3(0.18, 0.7, 0.4) * scan * 0.05;
+    color += vec3(0.12, 0.45, 0.28) * scan * 0.022;
 
     gl_FragColor = vec4(color, 1.0);
   }
@@ -183,10 +183,11 @@ const shaftFragment = /* glsl */ `
 
   void main() {
     float beam = pow(1.0 - abs(vUv.x - 0.5) * 2.0, 2.6);
-    float rise = smoothstep(0.0, 0.07, vUv.y) * (1.0 - smoothstep(0.42, 1.0, vUv.y));
-    float breathe = 0.86 + 0.14 * sin(uTime * 0.17 + vWorld.x * 0.08) * uMotion;
-    float alpha = beam * rise * breathe * 0.2;
-    vec3 color = mix(vec3(0.1, 0.75, 0.36), vec3(0.45, 0.95, 0.82), beam * 0.35);
+    float rise = smoothstep(0.0, 0.07, vUv.y) * (1.0 - smoothstep(0.38, 1.0, vUv.y));
+    float breathe = 0.82 + 0.1 * sin(uTime * 0.14 + vWorld.x * 0.06) * uMotion;
+    float hazeFade = smoothstep(78.0, 36.0, length(vWorld.xz));
+    float alpha = beam * rise * breathe * hazeFade * 0.09;
+    vec3 color = mix(vec3(0.08, 0.55, 0.28), vec3(0.32, 0.75, 0.64), beam * 0.28);
     gl_FragColor = vec4(color, alpha);
   }
 `;
@@ -205,8 +206,8 @@ const hazeFragment = /* glsl */ `
   varying vec3 vWorld;
   void main() {
     float r = length(vWorld.xz);
-    float fade = smoothstep(48.0, 6.0, r);
-    vec3 color = vec3(0.03, 0.07, 0.05);
+    float fade = smoothstep(56.0, 14.0, r) * (1.0 - smoothstep(8.0, 0.0, r) * 0.55);
+    vec3 color = vec3(0.016, 0.028, 0.022);
     gl_FragColor = vec4(color, fade * uAlpha);
   }
 `;
@@ -223,7 +224,7 @@ const moteVertex = /* glsl */ `
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
     gl_Position = projectionMatrix * mv;
     gl_PointSize = uSize * (0.55 + aSeed * 0.45) * (64.0 / -mv.z);
-    vAlpha = 0.08 + aSeed * 0.22;
+    vAlpha = 0.035 + aSeed * 0.1;
   }
 `;
 
@@ -234,7 +235,7 @@ const moteFragment = /* glsl */ `
     float d = length(c);
     if (d > 0.5) discard;
     float glow = smoothstep(0.5, 0.0, d);
-    vec3 color = mix(vec3(0.1, 0.55, 0.28), vec3(0.55, 0.92, 0.82), glow * 0.4);
+    vec3 color = mix(vec3(0.08, 0.4, 0.22), vec3(0.4, 0.72, 0.64), glow * 0.32);
     gl_FragColor = vec4(color, glow * vAlpha);
   }
 `;
@@ -258,14 +259,14 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
     return item;
   };
 
-  const hemi = new HemisphereLight(0x8eeebb, 0x030605, 0.5);
+  const hemi = new HemisphereLight(0x6eb894, 0x020403, 0.28);
   group.add(hemi);
 
-  const key = new PointLight(0x3dff8a, 16, 46, 2);
+  const key = new PointLight(0x3dff8a, 11, 40, 2);
   key.position.set(8, 14, 10);
   group.add(key);
 
-  const fill = new PointLight(0xb8fff4, 7, 38, 2);
+  const fill = new PointLight(0xb8fff4, 4.2, 32, 2);
   fill.position.set(-12, 9, -6);
   group.add(fill);
 
@@ -331,10 +332,10 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
     starGeo,
     track(
       new PointsMaterial({
-        color: new Color(0x7dffb5),
-        size: 0.07,
+        color: new Color(0x5cb888),
+        size: 0.05,
         transparent: true,
-        opacity: 0.42,
+        opacity: 0.22,
         blending: AdditiveBlending,
         depthWrite: false,
       }),
@@ -345,22 +346,22 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
   const dummy = new Object3D();
   const slabs = createMegaSlabs(quality.megaCount);
   const megaMat = new MeshBasicMaterial({
-    color: 0x2c6750,
+    color: 0x0a100e,
     fog: true,
   });
   track(megaMat);
   const ridgeMat = new MeshBasicMaterial({
-    color: 0x1c3a2d,
+    color: 0x070b0a,
     fog: true,
   });
   track(ridgeMat);
-  const farRidge = new Mesh(track(new BoxGeometry(32, 2.6, 2.4)), ridgeMat);
-  farRidge.position.set(0.8, 5.9, -7.6);
-  farRidge.rotation.y = 0.04;
+  const farRidge = new Mesh(track(new BoxGeometry(46, 2.1, 2.6)), ridgeMat);
+  farRidge.position.set(6.0, 3.15, -72.0);
+  farRidge.rotation.y = 0.05;
   group.add(farRidge);
-  const farRidgeB = new Mesh(track(new BoxGeometry(14, 3.4, 2.1)), ridgeMat);
-  farRidgeB.position.set(12.4, 6.4, -8.8);
-  farRidgeB.rotation.y = -0.18;
+  const farRidgeB = new Mesh(track(new BoxGeometry(22, 2.6, 2.2)), ridgeMat);
+  farRidgeB.position.set(28.5, 3.45, -78.5);
+  farRidgeB.rotation.y = -0.14;
   group.add(farRidgeB);
   const megas = new InstancedMesh(track(new BoxGeometry(1, 1, 1)), megaMat, Math.max(slabs.length, 1));
   megas.frustumCulled = false;
@@ -405,7 +406,7 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
   group.add(shafts);
 
   const hazeMat = new ShaderMaterial({
-    uniforms: { uAlpha: { value: 0.1 } },
+    uniforms: { uAlpha: { value: 0.034 } },
     vertexShader: hazeVertex,
     fragmentShader: hazeFragment,
     transparent: true,
@@ -421,7 +422,7 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
 
   if (quality.richSky) {
     const hazeHighMat = new ShaderMaterial({
-      uniforms: { uAlpha: { value: 0.05 } },
+      uniforms: { uAlpha: { value: 0.016 } },
       vertexShader: hazeVertex,
       fragmentShader: hazeFragment,
       transparent: true,
@@ -470,10 +471,10 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
   group.add(motes);
 
   const ringMat = new MeshBasicMaterial({
-    color: 0x2f7a52,
+    color: 0x1a3d2c,
     wireframe: true,
     transparent: true,
-    opacity: 0.3,
+    opacity: 0.15,
     fog: true,
     depthWrite: false,
   });
@@ -502,8 +503,8 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
   });
   track(flashMat);
   const flash = new Sprite(flashMat);
-  flash.position.set(-42, 9.5, -34);
-  flash.scale.set(11, 7, 1);
+  flash.position.set(-58, 8.2, -52);
+  flash.scale.set(9, 5.5, 1);
   flash.visible = liveFx;
   group.add(flash);
 
@@ -535,8 +536,8 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
         shaftMat.uniforms.uTime.value = 0;
         moteMat.uniforms.uTime.value = 0;
         flashMat.opacity = 0;
-        key.intensity = 13;
-        fill.intensity = 5.5;
+        key.intensity = 9.5;
+        fill.intensity = 3.4;
         return;
       }
 
@@ -544,8 +545,8 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
       skyMat.uniforms.uTime.value = time;
       shaftMat.uniforms.uTime.value = time;
       moteMat.uniforms.uTime.value = time;
-      key.intensity = 13.5 + Math.sin(time * 0.28) * 1.1;
-      fill.intensity = 5.6 + Math.cos(time * 0.19) * 0.7;
+      key.intensity = 9.8 + Math.sin(time * 0.28) * 0.7;
+      fill.intensity = 3.6 + Math.cos(time * 0.19) * 0.4;
 
       let scan = 0;
       let scanX = -80;
@@ -566,7 +567,7 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
         }
         const flashAge = time - flashStart;
         flashMat.opacity =
-          flashAge >= 0 && flashAge < 0.7 ? Math.sin((flashAge / 0.7) * Math.PI) * 0.16 : 0;
+          flashAge >= 0 && flashAge < 0.7 ? Math.sin((flashAge / 0.7) * Math.PI) * 0.07 : 0;
       }
 
       groundMat.uniforms.uScan.value = scan;
