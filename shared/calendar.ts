@@ -1,4 +1,4 @@
-import type { ContributionDay, ContributionLevel, CityData } from "./types";
+import type { ContributionDay, ContributionLevel, CityData } from "./types.js";
 
 export function clampLevel(value: number): ContributionLevel {
   const n = Math.max(0, Math.min(4, Math.round(value)));

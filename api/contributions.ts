@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { handleContributionsRequest } from "../server/handler";
+import { handleContributionsRequest } from "../server/handler.js";
 
 type VercelRequest = IncomingMessage & {
   query?: Record<string, string | string[] | undefined>;

@@ -1,6 +1,6 @@
-import { USERNAME_PATTERN, type ApiErrorBody, type CityData } from "../shared/types";
-import { fetchGithubCity, GithubLookupError } from "./github";
-import { createMockCity } from "./mockData";
+import { USERNAME_PATTERN, type ApiErrorBody, type CityData } from "../shared/types.js";
+import { fetchGithubCity, GithubLookupError } from "./github.js";
+import { createMockCity } from "./mockData.js";
 
 const cache = new Map<string, { expires: number; data: CityData }>();
 const CACHE_MS = 60_000;

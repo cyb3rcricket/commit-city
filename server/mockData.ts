@@ -3,8 +3,8 @@ import {
   buildCityData,
   clampLevel,
   mulberry32,
-} from "../shared/calendar";
-import type { CityData } from "../shared/types";
+} from "../shared/calendar.js";
+import type { CityData } from "../shared/types.js";
 
 function hashString(value: string): number {
   let hash = 2166136261;

@@ -1,5 +1,5 @@
-import { assignGrid, buildCityData, clampLevel } from "../shared/calendar";
-import type { CityData, ContributionLevel } from "../shared/types";
+import { assignGrid, buildCityData, clampLevel } from "../shared/calendar.js";
+import type { CityData, ContributionLevel } from "../shared/types.js";
 
 const USER_AGENT = "CommitCity/1.0 (https://github.com/commit-city)";
 
