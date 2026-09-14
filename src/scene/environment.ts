@@ -83,8 +83,8 @@ const groundFragment = /* glsl */ `
     float dim = mix(0.72, 0.22, uFocus);
 
     vec3 color = base;
-    color += green * fine * 0.032 * dim;
-    color += mix(green, cyan, 0.35) * coarse * 0.07 * dim;
+    color += green * fine * 0.022 * dim;
+    color += mix(green, cyan, 0.35) * coarse * 0.048 * dim;
     color += green * wave * uPulse * 0.05;
     color += cyan * pulse * 0.004 * dim;
 
@@ -139,9 +139,9 @@ const skyFragment = /* glsl */ `
   void main() {
     vec3 dir = normalize(vDir);
     float h = dir.y;
-    vec3 zenith = vec3(0.01, 0.014, 0.012);
-    vec3 mid = vec3(0.016, 0.024, 0.02);
-    vec3 horizon = vec3(0.024, 0.038, 0.03);
+    vec3 zenith = vec3(0.011, 0.016, 0.013);
+    vec3 mid = vec3(0.02, 0.032, 0.026);
+    vec3 horizon = vec3(0.032, 0.052, 0.04);
     vec3 color = mix(horizon, mid, smoothstep(-0.14, 0.2, h));
     color = mix(color, zenith, smoothstep(0.16, 0.76, h));
 
@@ -185,8 +185,8 @@ const shaftFragment = /* glsl */ `
     float beam = pow(1.0 - abs(vUv.x - 0.5) * 2.0, 2.6);
     float rise = smoothstep(0.0, 0.07, vUv.y) * (1.0 - smoothstep(0.38, 1.0, vUv.y));
     float breathe = 0.82 + 0.1 * sin(uTime * 0.14 + vWorld.x * 0.06) * uMotion;
-    float hazeFade = smoothstep(78.0, 36.0, length(vWorld.xz));
-    float alpha = beam * rise * breathe * hazeFade * 0.09;
+    float hazeFade = smoothstep(72.0, 28.0, length(vWorld.xz));
+    float alpha = beam * rise * breathe * hazeFade * 0.13;
     vec3 color = mix(vec3(0.08, 0.55, 0.28), vec3(0.32, 0.75, 0.64), beam * 0.28);
     gl_FragColor = vec4(color, alpha);
   }
@@ -346,21 +346,21 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
   const dummy = new Object3D();
   const slabs = createMegaSlabs(quality.megaCount);
   const megaMat = new MeshBasicMaterial({
-    color: 0x0a100e,
+    color: 0x1a2620,
     fog: true,
   });
   track(megaMat);
   const ridgeMat = new MeshBasicMaterial({
-    color: 0x070b0a,
+    color: 0x121a16,
     fog: true,
   });
   track(ridgeMat);
-  const farRidge = new Mesh(track(new BoxGeometry(46, 2.1, 2.6)), ridgeMat);
-  farRidge.position.set(6.0, 3.15, -72.0);
+  const farRidge = new Mesh(track(new BoxGeometry(40, 2.2, 2.5)), ridgeMat);
+  farRidge.position.set(4.5, 3.25, -46.0);
   farRidge.rotation.y = 0.05;
   group.add(farRidge);
-  const farRidgeB = new Mesh(track(new BoxGeometry(22, 2.6, 2.2)), ridgeMat);
-  farRidgeB.position.set(28.5, 3.45, -78.5);
+  const farRidgeB = new Mesh(track(new BoxGeometry(20, 2.7, 2.2)), ridgeMat);
+  farRidgeB.position.set(24.0, 3.55, -51.5);
   farRidgeB.rotation.y = -0.14;
   group.add(farRidgeB);
   const megas = new InstancedMesh(track(new BoxGeometry(1, 1, 1)), megaMat, Math.max(slabs.length, 1));
@@ -471,10 +471,10 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
   group.add(motes);
 
   const ringMat = new MeshBasicMaterial({
-    color: 0x1a3d2c,
+    color: 0x2a6848,
     wireframe: true,
     transparent: true,
-    opacity: 0.15,
+    opacity: 0.22,
     fog: true,
     depthWrite: false,
   });

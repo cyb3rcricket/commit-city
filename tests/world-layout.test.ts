@@ -42,7 +42,7 @@ describe("world scenery layout", () => {
     expect(SHAFT_ANCHORS.length).toBeLessThanOrEqual(5);
     for (const shaft of shaftAnchorsFor(5)) {
       expect(isOutsideDistrict(shaft.x, shaft.z, 8)).toBe(true);
-      expect(Math.hypot(shaft.x, shaft.z)).toBeGreaterThan(40);
+      expect(Math.hypot(shaft.x, shaft.z)).toBeGreaterThan(30);
     }
   });
 });

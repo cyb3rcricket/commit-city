@@ -28,31 +28,31 @@ export type ShaftAnchor = {
 };
 
 export const SHAFT_ANCHORS: readonly ShaftAnchor[] = [
-  { x: 46.5, z: 22.8, height: 11.2, width: 1.55 },
-  { x: -45.2, z: 21.4, height: 10.4, width: 1.35 },
-  { x: 43.8, z: -24.6, height: 9.6, width: 1.15 },
-  { x: -42.4, z: -25.2, height: 9.0, width: 1.05 },
-  { x: 16.8, z: 48.5, height: 8.2, width: 0.95 },
+  { x: 36.8, z: 15.4, height: 12.0, width: 1.65 },
+  { x: -35.6, z: 14.2, height: 11.0, width: 1.45 },
+  { x: 34.2, z: -17.6, height: 10.2, width: 1.25 },
+  { x: -33.0, z: -18.2, height: 9.6, width: 1.15 },
+  { x: 11.6, z: 34.8, height: 8.8, width: 1.05 },
 ];
 
 export const ORBITAL_FRAME = {
-  x: 1.2,
-  y: 4.35,
-  z: -26.4,
-  radius: 6.8,
-  tube: 0.062,
-  rx: 0.16,
-  ry: 0.2,
-  rz: 0.07,
+  x: 1.0,
+  y: 5.55,
+  z: -16.2,
+  radius: 8.0,
+  tube: 0.07,
+  rx: 0.2,
+  ry: 0.18,
+  rz: 0.06,
 };
 
 const LANDMARKS: readonly MegaSlab[] = [
-  { x: 64.5, y: 2.15, z: 31.2, sx: 4.4, sy: 4.3, sz: 8.2, yaw: -0.18 },
-  { x: -66.0, y: 2.05, z: 29.6, sx: 4.2, sy: 4.1, sz: 7.8, yaw: 0.16 },
-  { x: 61.8, y: 1.85, z: -38.4, sx: 7.2, sy: 3.7, sz: 4.2, yaw: 0.36 },
-  { x: -60.4, y: 1.8, z: -40.2, sx: 6.8, sy: 3.6, sz: 4.0, yaw: -0.32 },
-  { x: 72.6, y: 1.7, z: 6.4, sx: 3.4, sy: 3.4, sz: 11.2, yaw: 0.05 },
-  { x: -71.2, y: 1.65, z: 5.2, sx: 3.2, sy: 3.3, sz: 10.6, yaw: -0.04 },
+  { x: 62.4, y: 2.55, z: 28.6, sx: 5.6, sy: 5.1, sz: 10.4, yaw: -0.18 },
+  { x: -63.8, y: 2.45, z: 27.2, sx: 5.4, sy: 4.9, sz: 10.0, yaw: 0.16 },
+  { x: 59.6, y: 2.2, z: -36.8, sx: 9.2, sy: 4.4, sz: 5.2, yaw: 0.36 },
+  { x: -58.4, y: 2.15, z: -38.4, sx: 8.8, sy: 4.3, sz: 5.0, yaw: -0.32 },
+  { x: 70.2, y: 2.05, z: 6.0, sx: 4.2, sy: 4.1, sz: 14.0, yaw: 0.05 },
+  { x: -68.8, y: 2.0, z: 5.0, sx: 4.0, sy: 4.0, sz: 13.4, yaw: -0.04 },
 ];
 
 export function isOutsideDistrict(x: number, z: number, clearance = 0): boolean {
@@ -96,7 +96,7 @@ export function createMegaSlabs(count: number): MegaSlab[] {
   while (slabs.length < count && attempts < 400) {
     attempts += 1;
     const angle = Math.PI + (rand() - 0.5) * Math.PI * 1.45;
-    const radius = 68 + rand() * 26;
+    const radius = 64 + rand() * 24;
     const x = Math.cos(angle) * radius;
     const z = Math.sin(angle) * radius * 0.86;
     const kind = rand();
@@ -106,17 +106,17 @@ export function createMegaSlabs(count: number): MegaSlab[] {
     let sy: number;
     let sz: number;
     if (kind < 0.34) {
-      sx = 10 + rand() * 12;
-      sy = 2.2 + rand() * 2.4;
-      sz = 1.8 + rand() * 2.4;
+      sx = 12 + rand() * 14;
+      sy = 2.6 + rand() * 2.8;
+      sz = 2.2 + rand() * 2.8;
     } else if (kind < 0.72) {
-      sx = 3.4 + rand() * 4.8;
-      sy = 4.6 + rand() * 4.8;
-      sz = 2.6 + rand() * 3.6;
+      sx = 4.2 + rand() * 5.6;
+      sy = 5.4 + rand() * 5.2;
+      sz = 3.2 + rand() * 4.2;
     } else {
-      sx = 5.6 + rand() * 4.2;
-      sy = 3.4 + rand() * 3.2;
-      sz = 4.4 + rand() * 3.6;
+      sx = 6.4 + rand() * 5.0;
+      sy = 4.0 + rand() * 3.6;
+      sz = 5.2 + rand() * 4.2;
     }
 
     if (overlapsDistrict(x, z, sx, sz)) continue;
