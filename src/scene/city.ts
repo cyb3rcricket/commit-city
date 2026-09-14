@@ -220,7 +220,6 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
   let weeks = 53;
   let buildDuration = 0;
 
-  const box = new BoxGeometry(1, 1, 1);
   const buildingMat = new ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
@@ -258,12 +257,9 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
     transparent: false,
   });
 
-  let buildings = new InstancedMesh(box, buildingMat, days.length);
-  let foundations = new InstancedMesh(box, foundationMat, days.length);
-  let beacons = new InstancedMesh(new BoxGeometry(0.08, 0.18, 0.08), beaconMat, days.length);
-  buildings.instanceMatrix.setUsage(DynamicDrawUsage);
-  beacons.instanceMatrix.setUsage(DynamicDrawUsage);
-  group.add(foundations, buildings, beacons);
+  let buildings!: InstancedMesh;
+  let foundations!: InstancedMesh;
+  let beacons!: InstancedMesh;
 
   const district = new Mesh(
     new PlaneGeometry(1, 1),
@@ -353,16 +349,18 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
   };
 
   const rebuildMeshes = (count: number) => {
-    group.remove(buildings, foundations, beacons);
-    const geos = new Set([
-      buildings.geometry,
-      foundations.geometry,
-      beacons.geometry,
-    ]);
-    geos.forEach((geo) => geo.dispose());
-    buildings.dispose();
-    foundations.dispose();
-    beacons.dispose();
+    if (buildings && foundations && beacons) {
+      group.remove(buildings, foundations, beacons);
+      const geos = new Set([
+        buildings.geometry,
+        foundations.geometry,
+        beacons.geometry,
+      ]);
+      geos.forEach((geo) => geo.dispose());
+      buildings.dispose();
+      foundations.dispose();
+      beacons.dispose();
+    }
 
     const buildingGeo = new BoxGeometry(1, 1, 1);
     const foundationGeo = new BoxGeometry(1, 1, 1);
@@ -372,6 +370,7 @@ export function createCity(scene: Scene, quality: QualityProfile): CitySystem {
     foundations = new InstancedMesh(foundationGeo, foundationMat, count);
     beacons = new InstancedMesh(beaconGeo, beaconMat, count);
     buildings.instanceMatrix.setUsage(DynamicDrawUsage);
+    foundations.instanceMatrix.setUsage(DynamicDrawUsage);
     beacons.instanceMatrix.setUsage(DynamicDrawUsage);
     buildings.frustumCulled = false;
     foundations.frustumCulled = false;

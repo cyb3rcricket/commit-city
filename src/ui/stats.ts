@@ -1,4 +1,4 @@
-import { formatLongDate } from "../../shared/calendar";
+import { formatLongDate, parseIsoDate } from "../../shared/calendar";
 import type { DerivedStats } from "../../shared/calendar";
 
 export type StatsUI = {
@@ -31,7 +31,7 @@ export function createStatsUI(): StatsUI {
       total.textContent = stats.totalContributions.toLocaleString("en-US");
       active.textContent = stats.activeDays.toLocaleString("en-US");
       if (stats.busiestDay) {
-        const short = new Date(`${stats.busiestDay.date}T00:00:00Z`).toLocaleDateString(
+        const short = parseIsoDate(stats.busiestDay.date).toLocaleDateString(
           "en-US",
           { month: "short", day: "numeric", timeZone: "UTC" },
         );

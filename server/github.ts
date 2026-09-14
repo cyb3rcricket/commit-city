@@ -98,15 +98,24 @@ export async function fetchViaGraphql(
     }
   `;
 
-  const response = await fetch("https://api.github.com/graphql", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      "User-Agent": USER_AGENT,
-    },
-    body: JSON.stringify({ query, variables: { login: username } }),
-  });
+  let response: Response;
+  try {
+    response = await fetch("https://api.github.com/graphql", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "User-Agent": USER_AGENT,
+      },
+      body: JSON.stringify({ query, variables: { login: username } }),
+    });
+  } catch {
+    throw new GithubLookupError(
+      "network",
+      "Couldn't reach GitHub. Check your connection.",
+      503,
+    );
+  }
 
   if (response.status === 401 || response.status === 403) {
     throw new GithubLookupError(
@@ -132,7 +141,16 @@ export async function fetchViaGraphql(
     );
   }
 
-  const payload = (await response.json()) as GraphQLCalendar;
+  let payload: GraphQLCalendar;
+  try {
+    payload = (await response.json()) as GraphQLCalendar;
+  } catch {
+    throw new GithubLookupError(
+      "unavailable",
+      "GitHub GraphQL returned an unreadable response.",
+      502,
+    );
+  }
   const gqlError = payload.errors?.[0];
   if (gqlError?.type === "RATE_LIMITED") {
     throw new GithubLookupError("rate_limited", gqlError.message, 429);

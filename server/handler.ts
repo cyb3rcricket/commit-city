@@ -23,7 +23,7 @@ export async function handleContributionsRequest(
   rawUsername: string,
   options: HandlerOptions = {},
 ): Promise<HandlerResult> {
-  const username = rawUsername.trim().replace(/^@/, "");
+  const username = (typeof rawUsername === "string" ? rawUsername : "").trim().replace(/^@/, "");
 
   if (!username || !USERNAME_PATTERN.test(username)) {
     return errorBody(
@@ -44,12 +44,29 @@ export async function handleContributionsRequest(
 
   const cacheKey = username.toLowerCase();
   const cached = cache.get(cacheKey);
-  if (cached && cached.expires > Date.now()) {
-    return { status: 200, body: cached.data };
+  if (cached) {
+    if (cached.expires > Date.now()) {
+      return { status: 200, body: cached.data };
+    }
+    cache.delete(cacheKey);
   }
 
   try {
     const data = await fetchGithubCity(username);
+    if (cache.size > 200) {
+      const now = Date.now();
+      for (const [k, entry] of cache.entries()) {
+        if (entry.expires <= now) {
+          cache.delete(k);
+        }
+      }
+      if (cache.size > 200) {
+        const oldestKey = cache.keys().next().value;
+        if (oldestKey !== undefined) {
+          cache.delete(oldestKey);
+        }
+      }
+    }
     cache.set(cacheKey, { data, expires: Date.now() + CACHE_MS });
     return { status: 200, body: data };
   } catch (error) {

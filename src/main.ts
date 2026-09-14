@@ -74,7 +74,11 @@ const interaction = createInteraction(
   },
 );
 
+let currentMode: "idle" | "loading" | "ready" | "error" = "idle";
+let lastCinematic = false;
+
 function setMode(mode: "idle" | "loading" | "ready" | "error") {
+  currentMode = mode;
   document.body.classList.remove("is-idle", "is-loading", "is-ready", "is-error");
   document.body.classList.add(`is-${mode}`);
 }
@@ -83,7 +87,7 @@ function stillCurrent(gen: number) {
   return gen === loadGen;
 }
 
-async function loadUser(raw: string, fromUrl = false) {
+async function loadUser(raw: string, _fromUrl = false) {
   const username = raw.trim().replace(/^@/, "");
   if (!username) {
     search.setStatus("Enter a GitHub username.", true);
@@ -200,9 +204,6 @@ async function loadUser(raw: string, fromUrl = false) {
       stats.show(deriveStats(currentData));
       controls.show();
     }
-    if (!fromUrl) {
-      city.setLoading(false);
-    }
   } finally {
     if (stillCurrent(gen)) {
       city.setLoading(false);
@@ -249,16 +250,16 @@ const loop = () => {
   const dt = Math.min(0.05, context.clock.getDelta());
   const time = context.clock.elapsedTime;
   environment.setPulse(
-    document.body.classList.contains("is-loading") ? 0.85 : 0.08,
+    currentMode === "loading" ? 0.85 : 0.08,
   );
   environment.update(time);
   particles.update(time);
   city.update(time, dt);
   cameraRig.update(dt);
   const cine = cameraRig.cinematic();
-  if (document.body.classList.contains("is-ready")) {
-    const pressed = document.querySelector("#btn-explore")?.getAttribute("aria-pressed") === "true";
-    if (pressed !== cine) controls.setCinematic(cine);
+  if (currentMode === "ready" && lastCinematic !== cine) {
+    lastCinematic = cine;
+    controls.setCinematic(cine);
   }
   context.render();
 };

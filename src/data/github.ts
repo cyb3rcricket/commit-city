@@ -49,11 +49,14 @@ export async function fetchCityData(username: string): Promise<CityData> {
 
 export function usernameFromLocation(): string | null {
   const params = new URLSearchParams(window.location.search);
-  const queryUser = params.get("user");
-  if (queryUser) return queryUser.trim();
+  const queryUser = params.get("user")?.trim();
+  if (queryUser) return queryUser;
 
   const path = window.location.pathname.match(/^\/u\/([^/]+)\/?$/);
-  if (path?.[1]) return decodeURIComponent(path[1]).trim();
+  if (path?.[1]) {
+    const pathUser = decodeURIComponent(path[1]).trim();
+    if (pathUser) return pathUser;
+  }
   return null;
 }
 

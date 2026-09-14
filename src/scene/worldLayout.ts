@@ -1,3 +1,5 @@
+import { mulberry32 } from "../../shared/calendar";
+
 /** Contribution district in world XZ. Scenery must stay outside this box. */
 export const DISTRICT = {
   halfWidth: 22.6,
@@ -60,17 +62,6 @@ export function isOutsideDistrict(x: number, z: number, clearance = 0): boolean 
     Math.abs(x) > DISTRICT.halfWidth + clearance ||
     Math.abs(z) > DISTRICT.halfDepth + clearance
   );
-}
-
-function mulberry32(seed: number): () => number {
-  let t = seed >>> 0;
-  return () => {
-    t += 0x6d2b79f5;
-    let x = t;
-    x = Math.imul(x ^ (x >>> 15), x | 1);
-    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
-    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 function overlapsDistrict(x: number, z: number, sx: number, sz: number): boolean {

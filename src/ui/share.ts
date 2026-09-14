@@ -1,9 +1,15 @@
 import { shareUrlFor } from "../data/github";
 import type { WebGLRenderer } from "three";
 
+let toastTimer: number | undefined;
+let toastEl: HTMLParagraphElement | null = null;
+
 export function copyShareLink(username: string): Promise<void> {
   const url = shareUrlFor(username);
   window.history.replaceState({ user: username }, "", `/?user=${encodeURIComponent(username)}`);
+  if (!navigator.clipboard?.writeText) {
+    return Promise.reject(new Error("Clipboard API unavailable"));
+  }
   return navigator.clipboard.writeText(url);
 }
 
@@ -21,10 +27,20 @@ export function captureSkyline(
 }
 
 export function toast(message: string) {
-  const el = document.querySelector<HTMLParagraphElement>("#copy-toast")!;
-  el.textContent = message;
-  el.hidden = false;
-  window.setTimeout(() => {
-    el.hidden = true;
+  if (!toastEl) {
+    toastEl = document.querySelector<HTMLParagraphElement>("#copy-toast");
+  }
+  if (!toastEl) return;
+
+  if (toastTimer !== undefined) {
+    window.clearTimeout(toastTimer);
+  }
+  toastEl.textContent = message;
+  toastEl.hidden = false;
+  toastTimer = window.setTimeout(() => {
+    if (toastEl) {
+      toastEl.hidden = true;
+    }
+    toastTimer = undefined;
   }, 1800);
 }

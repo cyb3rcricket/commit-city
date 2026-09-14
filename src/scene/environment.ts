@@ -91,10 +91,10 @@ const groundFragment = /* glsl */ `
     float ring = smoothstep(0.22, 0.0, abs(dist - 21.0));
     color += green * ring * 0.028 * dim;
 
-    float smear = pow(1.0 - saturate(abs(pz) / 3.8), 3.2) * inDistrict;
+    float smear = pow(1.0 - clamp(abs(pz) / 3.8, 0.0, 1.0), 3.2) * inDistrict;
     smear *= 0.55 + 0.45 * smoothstep(18.0, 4.0, abs(px));
     color += vec3(0.03, 0.07, 0.05) * smear * 0.16 * dim;
-    float glass = pow(1.0 - saturate(abs(pz) * 0.22), 10.0) * inDistrict;
+    float glass = pow(1.0 - clamp(abs(pz) * 0.22, 0.0, 1.0), 10.0) * inDistrict;
     color += vec3(0.18, 0.4, 0.32) * glass * 0.016 * dim;
 
     float pathA = exp(-pow(pz - (18.6 + 0.55 * sin(px * 0.06)), 2.0) * 12.0);
