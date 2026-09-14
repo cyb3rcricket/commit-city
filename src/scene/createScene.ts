@@ -34,7 +34,7 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
   const scene = new Scene();
   scene.background = new Color(0x060a08);
 
-  const camera = new PerspectiveCamera(38, 1, 0.1, 280);
+  const camera = new PerspectiveCamera(40.5, 1, 0.1, 280);
   camera.position.set(18, 16, 24);
 
   const renderer = new WebGLRenderer({
