@@ -1,21 +1,31 @@
 # Commit City
 
-Turn a GitHub contribution history into a 3D cyber-city.
+> **Turn your GitHub history into a skyline.**
 
-Enter a public username. Commit City maps a year of contribution days onto city lots, then raises a skyline — taller towers for heavier days, dark foundations for empty ones — so the familiar calendar grid is still readable from above.
+I had a pretty simple idea: GitHub gives us this little grid of green squares, but what would that history look like if it felt like an actual place?
 
-## Run locally
+So I built **Commit City**.
+
+Give it a public GitHub username and it turns a year of contribution history into a 3D cyber-city. Each day becomes a city lot. More activity means taller buildings. Quiet days stay low and dark, so the original contribution graph is still there underneath everything.
+
+It is part data visualization, part tiny digital city, and a little unnecessary in exactly the way I like.
+
+## Run it locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the printed local URL (default `http://localhost:5173`).
+Vite will print the local URL, usually:
 
-Optional:
-
+```text
+http://localhost:5173
 ```
+
+You can also jump straight to a username:
+
+```text
 http://localhost:5173/?user=torvalds
 ```
 
@@ -27,17 +37,17 @@ npm run build
 npm run preview
 ```
 
-`preview` serves the production bundle and still mounts `/api/contributions` so username lookup works locally.
+`preview` serves the production bundle and still mounts `/api/contributions`, so username lookup works locally too.
 
-## GitHub data
+## How the GitHub data works
 
-The browser never talks to GitHub with a secret. It calls:
+I did not want a GitHub token sitting in browser code, so the frontend talks to a small server-side endpoint instead:
 
-```
+```text
 GET /api/contributions?user=USERNAME
 ```
 
-That endpoint returns a normalized calendar:
+That endpoint normalizes the contribution calendar into something the city can use:
 
 ```ts
 {
@@ -48,37 +58,71 @@ That endpoint returns a normalized calendar:
   to,
   totalContributions,
   source: "github" | "mock",
-  days: [{ date, contributionCount, level, weekIndex, dayIndex }]
+  days: [
+    {
+      date,
+      contributionCount,
+      level,
+      weekIndex,
+      dayIndex
+    }
+  ]
 }
 ```
 
-Resolution order:
+Data resolution goes in this order:
 
-1. **GitHub GraphQL** if `GITHUB_TOKEN` is set (preferred, more stable)
-2. **Public contribution calendar HTML** if no token (no extra scopes required)
-3. **Deterministic mock data** in local Vite when GitHub is unreachable, so the city can still be developed
+1. **GitHub GraphQL** when `GITHUB_TOKEN` is available
+2. **GitHub's public contribution calendar HTML** when it is not
+3. **Deterministic mock data** during local development if GitHub is unavailable
 
-Copy `.env.example` to `.env` for local tokens:
+For local GraphQL access, copy `.env.example` to `.env` and add:
 
-```
-GITHUB_TOKEN=ghp_...
+```env
+GITHUB_TOKEN=your_token_here
 USE_MOCK=false
 ```
 
-Create a classic PAT with public access, or a fine-grained token that can read public user data. **Never put the token in client-side JavaScript.**
+Never put that token in client-side JavaScript.
 
-On Vercel, set `GITHUB_TOKEN` as an environment variable. The function lives at `api/contributions.ts`. Visiting `/u/USERNAME` rewrites to the app; the client also understands `/?user=USERNAME`.
+On Vercel, set `GITHUB_TOKEN` as a server-side environment variable. The function lives at `api/contributions.ts`.
 
-Force mock data while designing:
+The app understands both:
 
+```text
+/?user=USERNAME
+/u/USERNAME
 ```
+
+If I just want predictable fake data while working on the visuals:
+
+```env
 USE_MOCK=true
 ```
 
-or ` /api/contributions?user=demo&mock=1` during `npm run dev`.
+or:
 
-## Stack
+```text
+/api/contributions?user=demo&mock=1
+```
 
-- Vite + TypeScript
-- Three.js (instanced buildings, fog, bloom, particles)
-- Serverless-style `/api/contributions` used by both Vite middleware and Vercel
+while `npm run dev` is running.
+
+## Built with
+
+- **Vite + TypeScript**
+- **Three.js** for the city, camera, instanced buildings, fog, bloom, and particles
+- **Vitest** for the test suite
+- a serverless-style `/api/contributions` endpoint shared by local Vite development and Vercel
+
+A lot of Commit City has also been built through AI-assisted iteration with Grok Build: get the idea working, look at what feels wrong, fix it, make it weirder, occasionally make it *too* weird, and then reel it back in.
+
+That process is honestly a big part of why this exists.
+
+## The rule I do not want to break
+
+The city can get more dramatic. The environment can get stranger. The camera can get more cinematic.
+
+But the contribution history should still be the contribution history.
+
+The towers are the data.
