@@ -1,21 +1,38 @@
 import {
   AdditiveBlending,
+  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   Color,
+  BackSide,
   DoubleSide,
   FogExp2,
   Group,
   HemisphereLight,
+  InstancedMesh,
   Mesh,
+  MeshBasicMaterial,
+  Object3D,
   PlaneGeometry,
   PointLight,
   Points,
   PointsMaterial,
   ShaderMaterial,
+  SphereGeometry,
+  Sprite,
+  SpriteMaterial,
+  TorusGeometry,
   type Scene,
 } from "three";
 import type { QualityProfile } from "./quality";
+import {
+  createMegaSlabs,
+  ORBITAL_FRAME,
+  shaftAnchorsFor,
+} from "./worldLayout";
+
+const FOG_COLOR = 0x060a08;
+const FOG_DENSITY = 0.011;
 
 const groundVertex = /* glsl */ `
   varying vec3 vWorld;
@@ -30,6 +47,9 @@ const groundFragment = /* glsl */ `
   uniform float uTime;
   uniform float uPulse;
   uniform float uFocus;
+  uniform float uMotion;
+  uniform float uScan;
+  uniform float uScanX;
   varying vec3 vWorld;
 
   float lineGrid(vec2 p, float scale, float width) {
@@ -41,27 +61,181 @@ const groundFragment = /* glsl */ `
 
   void main() {
     vec2 p = vWorld.xz;
+    float px = p.x;
+    float pz = p.y;
     float dist = length(p);
-    float near = mix(18.0, 11.0, uFocus);
-    float far = mix(42.0, 24.0, uFocus);
+    float near = mix(22.0, 12.0, uFocus);
+    float far = mix(64.0, 30.0, uFocus);
     float fade = smoothstep(far, near, dist);
+
+    float inDistrict = smoothstep(22.4, 17.5, abs(px)) * smoothstep(3.6, 1.5, abs(pz));
+    float outside = 1.0 - inDistrict;
+
     float fine = lineGrid(p, 0.72, 0.022);
     float coarse = lineGrid(p, 0.11, 0.01);
-    float pulse = 0.5 + 0.5 * sin(p.x * 0.2 - uTime * 0.32);
-    float wave = 1.0 - abs(fract((p.x + 26.0) / 54.0 - uPulse) * 2.0 - 1.0);
+    float pulse = 0.5 + 0.5 * sin(px * 0.2 - uTime * 0.32 * uMotion);
+    float wave = 1.0 - abs(fract((px + 26.0) / 54.0 - uPulse) * 2.0 - 1.0);
     wave = smoothstep(0.35, 1.0, wave);
-    vec3 base = vec3(0.01, 0.02, 0.016);
+
+    vec3 base = vec3(0.016, 0.028, 0.022);
     vec3 green = vec3(0.12, 0.95, 0.45);
     vec3 cyan = vec3(0.55, 0.95, 0.92);
     float dim = mix(1.0, 0.32, uFocus);
+
     vec3 color = base;
-    color += green * fine * 0.055 * dim;
-    color += mix(green, cyan, 0.35) * coarse * 0.14 * dim;
-    color += green * wave * uPulse * 0.14;
-    color += cyan * pulse * 0.008 * dim;
+    color += green * fine * 0.07 * dim;
+    color += mix(green, cyan, 0.35) * coarse * 0.16 * dim;
+    color += green * wave * uPulse * 0.12;
+    color += cyan * pulse * 0.01 * dim;
+
     float ring = smoothstep(0.22, 0.0, abs(dist - 21.0));
-    color += green * ring * 0.06 * dim;
+    color += green * ring * 0.07 * dim;
+
+    float smear = pow(1.0 - saturate(abs(pz) / 3.8), 3.2) * inDistrict;
+    smear *= 0.55 + 0.45 * smoothstep(18.0, 4.0, abs(px));
+    color += vec3(0.05, 0.16, 0.1) * smear * 0.55 * dim;
+    float glass = pow(1.0 - saturate(abs(pz) * 0.22), 10.0) * inDistrict;
+    color += vec3(0.32, 0.75, 0.58) * glass * 0.05 * dim;
+
+    float pathA = exp(-pow(pz - (8.4 + 0.65 * sin(px * 0.075)), 2.0) * 11.0);
+    float pathB = exp(-pow(pz + (8.9 + 0.5 * cos(px * 0.055)), 2.0) * 11.0);
+    float pathC = exp(-pow(px - (27.8 + 0.35 * sin(pz * 0.18)), 2.0) * 8.0);
+    float ringRoad = exp(-pow(dist - 31.5, 2.0) * 3.2);
+    float highways = (pathA + pathB + pathC * 0.8 + ringRoad * 0.62) * outside;
+    float packet = smoothstep(0.08, 0.0, abs(fract(px * 0.032 - uTime * 0.038) - 0.5));
+    float flow = mix(0.34, 0.34 + packet * 0.7, uMotion);
+    color += green * highways * 0.2 * flow * dim;
+    color += cyan * highways * packet * uMotion * 0.07 * dim;
+
+    float scanBand = smoothstep(2.2, 0.0, abs(px - uScanX)) * uScan * outside;
+    color += mix(green, cyan, 0.25) * scanBand * 0.08;
+
+    color = min(color, vec3(0.14, 0.24, 0.18));
     gl_FragColor = vec4(color, fade);
+  }
+`;
+
+const skyVertex = /* glsl */ `
+  varying vec3 vDir;
+  void main() {
+    vec4 world = modelMatrix * vec4(position, 1.0);
+    vDir = normalize(world.xyz);
+    gl_Position = projectionMatrix * viewMatrix * world;
+  }
+`;
+
+const skyFragment = /* glsl */ `
+  uniform float uTime;
+  uniform float uMotion;
+  uniform float uScan;
+  uniform float uScanX;
+  uniform float uRich;
+  varying vec3 vDir;
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+
+  void main() {
+    vec3 dir = normalize(vDir);
+    float h = dir.y;
+    vec3 zenith = vec3(0.02, 0.034, 0.028);
+    vec3 mid = vec3(0.05, 0.09, 0.07);
+    vec3 horizon = vec3(0.08, 0.15, 0.11);
+    vec3 color = mix(horizon, mid, smoothstep(-0.14, 0.2, h));
+    color = mix(color, zenith, smoothstep(0.16, 0.76, h));
+
+    float strata = smoothstep(0.14, 0.0, abs(fract(h * 4.6 + dir.x * 0.18) - 0.5));
+    color += vec3(0.07, 0.2, 0.12) * strata * 0.085 * uRich;
+
+    float columns = smoothstep(0.06, 0.0, abs(fract(dir.x * 3.4) - 0.5));
+    color += vec3(0.05, 0.14, 0.1) * columns * (1.0 - smoothstep(0.05, 0.55, h)) * 0.07 * uRich;
+
+    float veil = pow(max(0.0, 1.0 - abs(h - 0.02) * 2.8), 2.0);
+    color += vec3(0.05, 0.12, 0.09) * veil * 0.18;
+
+    float grain = hash(dir.xz * 18.0 + floor(uTime * 0.02 * uMotion));
+    color += vec3(0.04, 0.09, 0.07) * grain * 0.035 * uRich;
+
+    float scan = smoothstep(0.045, 0.0, abs(dir.x - uScanX * 0.012)) * uScan;
+    color += vec3(0.18, 0.7, 0.4) * scan * 0.05;
+
+    gl_FragColor = vec4(color, 1.0);
+  }
+`;
+
+const shaftVertex = /* glsl */ `
+  varying vec2 vUv;
+  varying vec3 vWorld;
+  void main() {
+    vUv = uv;
+    vec4 world = modelMatrix * vec4(position, 1.0);
+    vWorld = world.xyz;
+    gl_Position = projectionMatrix * viewMatrix * world;
+  }
+`;
+
+const shaftFragment = /* glsl */ `
+  uniform float uTime;
+  uniform float uMotion;
+  varying vec2 vUv;
+  varying vec3 vWorld;
+
+  void main() {
+    float beam = pow(1.0 - abs(vUv.x - 0.5) * 2.0, 2.6);
+    float rise = smoothstep(0.0, 0.07, vUv.y) * (1.0 - smoothstep(0.42, 1.0, vUv.y));
+    float breathe = 0.86 + 0.14 * sin(uTime * 0.17 + vWorld.x * 0.08) * uMotion;
+    float alpha = beam * rise * breathe * 0.2;
+    vec3 color = mix(vec3(0.1, 0.75, 0.36), vec3(0.45, 0.95, 0.82), beam * 0.35);
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
+const hazeVertex = /* glsl */ `
+  varying vec3 vWorld;
+  void main() {
+    vec4 world = modelMatrix * vec4(position, 1.0);
+    vWorld = world.xyz;
+    gl_Position = projectionMatrix * viewMatrix * world;
+  }
+`;
+
+const hazeFragment = /* glsl */ `
+  uniform float uAlpha;
+  varying vec3 vWorld;
+  void main() {
+    float r = length(vWorld.xz);
+    float fade = smoothstep(48.0, 6.0, r);
+    vec3 color = vec3(0.03, 0.07, 0.05);
+    gl_FragColor = vec4(color, fade * uAlpha);
+  }
+`;
+
+const moteVertex = /* glsl */ `
+  attribute float aSeed;
+  uniform float uTime;
+  uniform float uSize;
+  uniform float uMotion;
+  varying float vAlpha;
+  void main() {
+    vec3 p = position;
+    p.y = mix(p.y, mod(p.y + uTime * (0.04 + aSeed * 0.07) + aSeed * 5.0, 7.2) - 0.2, uMotion);
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = uSize * (0.55 + aSeed * 0.45) * (64.0 / -mv.z);
+    vAlpha = 0.08 + aSeed * 0.22;
+  }
+`;
+
+const moteFragment = /* glsl */ `
+  varying float vAlpha;
+  void main() {
+    vec2 c = gl_PointCoord - 0.5;
+    float d = length(c);
+    if (d > 0.5) discard;
+    float glow = smoothstep(0.5, 0.0, d);
+    vec3 color = mix(vec3(0.1, 0.55, 0.28), vec3(0.55, 0.92, 0.82), glow * 0.4);
+    gl_FragColor = vec4(color, glow * vAlpha);
   }
 `;
 
@@ -73,28 +247,40 @@ export type EnvironmentSystem = {
 };
 
 export function createEnvironment(scene: Scene, quality: QualityProfile): EnvironmentSystem {
-  scene.fog = new FogExp2(0x050807, 0.026);
+  scene.fog = new FogExp2(FOG_COLOR, FOG_DENSITY);
 
   const group = new Group();
   scene.add(group);
 
-  const hemi = new HemisphereLight(0x9effc6, 0x040807, 0.62);
+  const disposables: Array<{ dispose: () => void }> = [];
+  const track = <T extends { dispose: () => void }>(item: T): T => {
+    disposables.push(item);
+    return item;
+  };
+
+  const hemi = new HemisphereLight(0x8eeebb, 0x030605, 0.5);
   group.add(hemi);
 
-  const key = new PointLight(0x3dff8a, 18, 48, 2);
+  const key = new PointLight(0x3dff8a, 16, 46, 2);
   key.position.set(8, 14, 10);
   group.add(key);
 
-  const fill = new PointLight(0xb8fff4, 8, 40, 2);
+  const fill = new PointLight(0xb8fff4, 7, 38, 2);
   fill.position.set(-12, 9, -6);
   group.add(fill);
 
+  const motion = quality.reducedMotion ? 0 : 1;
   let focusTarget = 0;
+  const liveFx = quality.worldFx && !quality.reducedMotion;
+
   const groundMat = new ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
       uPulse: { value: 0 },
       uFocus: { value: 0 },
+      uMotion: { value: motion },
+      uScan: { value: 0 },
+      uScanX: { value: -80 },
     },
     vertexShader: groundVertex,
     fragmentShader: groundFragment,
@@ -102,35 +288,229 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
     depthWrite: false,
     side: DoubleSide,
   });
-
-  const ground = new Mesh(new PlaneGeometry(120, 120, 1, 1), groundMat);
+  track(groundMat);
+  const ground = new Mesh(track(new PlaneGeometry(170, 170, 1, 1)), groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -0.03;
+  ground.renderOrder = -1;
   group.add(ground);
+
+  const skyMat = new ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uMotion: { value: motion },
+      uScan: { value: 0 },
+      uScanX: { value: -80 },
+      uRich: { value: quality.richSky ? 1 : 0.45 },
+    },
+    vertexShader: skyVertex,
+    fragmentShader: skyFragment,
+    depthWrite: false,
+    side: BackSide,
+    fog: false,
+  });
+  track(skyMat);
+  const sky = new Mesh(track(new SphereGeometry(118, quality.richSky ? 32 : 20, quality.richSky ? 20 : 12)), skyMat);
+  sky.renderOrder = -20;
+  sky.frustumCulled = false;
+  group.add(sky);
 
   const starGeo = new BufferGeometry();
   const starCount = quality.distantLights;
-  const positions = new Float32Array(starCount * 3);
+  const starPos = new Float32Array(starCount * 3);
   for (let i = 0; i < starCount; i += 1) {
-    const radius = 30 + Math.random() * 42;
+    const radius = 34 + Math.random() * 36;
     const angle = Math.random() * Math.PI * 2;
-    positions[i * 3] = Math.cos(angle) * radius;
-    positions[i * 3 + 1] = 1.5 + Math.random() * 20;
-    positions[i * 3 + 2] = Math.sin(angle) * radius * 0.52;
+    starPos[i * 3] = Math.cos(angle) * radius;
+    starPos[i * 3 + 1] = 0.55 + Math.random() * 7.5;
+    starPos[i * 3 + 2] = Math.sin(angle) * radius * 0.58;
   }
-  starGeo.setAttribute("position", new BufferAttribute(positions, 3));
+  starGeo.setAttribute("position", new BufferAttribute(starPos, 3));
+  track(starGeo);
   const stars = new Points(
     starGeo,
-    new PointsMaterial({
-      color: new Color(0xb8fff4),
-      size: 0.055,
-      transparent: true,
-      opacity: 0.5,
-      blending: AdditiveBlending,
-      depthWrite: false,
-    }),
+    track(
+      new PointsMaterial({
+        color: new Color(0x7dffb5),
+        size: 0.07,
+        transparent: true,
+        opacity: 0.42,
+        blending: AdditiveBlending,
+        depthWrite: false,
+      }),
+    ),
   );
   group.add(stars);
+
+  const dummy = new Object3D();
+  const slabs = createMegaSlabs(quality.megaCount);
+  const megaMat = new MeshBasicMaterial({
+    color: 0x2c6750,
+    fog: true,
+  });
+  track(megaMat);
+  const ridgeMat = new MeshBasicMaterial({
+    color: 0x1c3a2d,
+    fog: true,
+  });
+  track(ridgeMat);
+  const farRidge = new Mesh(track(new BoxGeometry(32, 2.6, 2.4)), ridgeMat);
+  farRidge.position.set(0.8, 5.9, -7.6);
+  farRidge.rotation.y = 0.04;
+  group.add(farRidge);
+  const farRidgeB = new Mesh(track(new BoxGeometry(14, 3.4, 2.1)), ridgeMat);
+  farRidgeB.position.set(12.4, 6.4, -8.8);
+  farRidgeB.rotation.y = -0.18;
+  group.add(farRidgeB);
+  const megas = new InstancedMesh(track(new BoxGeometry(1, 1, 1)), megaMat, Math.max(slabs.length, 1));
+  megas.frustumCulled = false;
+  for (let i = 0; i < slabs.length; i += 1) {
+    const slab = slabs[i];
+    dummy.position.set(slab.x, slab.y, slab.z);
+    dummy.rotation.set(0, slab.yaw, 0);
+    dummy.scale.set(slab.sx, slab.sy, slab.sz);
+    dummy.updateMatrix();
+    megas.setMatrixAt(i, dummy.matrix);
+  }
+  megas.instanceMatrix.needsUpdate = true;
+  megas.count = slabs.length;
+  group.add(megas);
+
+  const shaftMat = new ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uMotion: { value: motion },
+    },
+    vertexShader: shaftVertex,
+    fragmentShader: shaftFragment,
+    transparent: true,
+    blending: AdditiveBlending,
+    depthWrite: false,
+    side: DoubleSide,
+  });
+  track(shaftMat);
+  const shaftGeo = track(new PlaneGeometry(1, 1));
+  const shafts = new Group();
+  const anchors = shaftAnchorsFor(quality.shafts);
+  for (const anchor of anchors) {
+    for (const yaw of [0, Math.PI * 0.5]) {
+      const card = new Mesh(shaftGeo, shaftMat);
+      card.position.set(anchor.x, anchor.height * 0.5, anchor.z);
+      card.scale.set(anchor.width, anchor.height, 1);
+      card.rotation.y = yaw;
+      card.renderOrder = 2;
+      shafts.add(card);
+    }
+  }
+  group.add(shafts);
+
+  const hazeMat = new ShaderMaterial({
+    uniforms: { uAlpha: { value: 0.1 } },
+    vertexShader: hazeVertex,
+    fragmentShader: hazeFragment,
+    transparent: true,
+    depthWrite: false,
+    side: DoubleSide,
+  });
+  track(hazeMat);
+  const hazeLow = new Mesh(track(new PlaneGeometry(110, 110)), hazeMat);
+  hazeLow.rotation.x = -Math.PI / 2;
+  hazeLow.position.y = 0.42;
+  hazeLow.renderOrder = 1;
+  group.add(hazeLow);
+
+  if (quality.richSky) {
+    const hazeHighMat = new ShaderMaterial({
+      uniforms: { uAlpha: { value: 0.05 } },
+      vertexShader: hazeVertex,
+      fragmentShader: hazeFragment,
+      transparent: true,
+      depthWrite: false,
+      side: DoubleSide,
+    });
+    track(hazeHighMat);
+    const hazeHigh = new Mesh(track(new PlaneGeometry(88, 88)), hazeHighMat);
+    hazeHigh.rotation.x = -Math.PI / 2;
+    hazeHigh.position.y = 1.55;
+    hazeHigh.renderOrder = 1;
+    group.add(hazeHigh);
+  }
+
+  const moteCount = quality.atmosphereMotes;
+  const motePos = new Float32Array(moteCount * 3);
+  const moteSeeds = new Float32Array(moteCount);
+  for (let i = 0; i < moteCount; i += 1) {
+    const radius = 3 + Math.random() * 22;
+    const angle = Math.random() * Math.PI * 2;
+    motePos[i * 3] = Math.cos(angle) * radius;
+    motePos[i * 3 + 1] = Math.random() * 6.2;
+    motePos[i * 3 + 2] = Math.sin(angle) * radius * 0.55;
+    moteSeeds[i] = Math.random();
+  }
+  const moteGeo = new BufferGeometry();
+  moteGeo.setAttribute("position", new BufferAttribute(motePos, 3));
+  moteGeo.setAttribute("aSeed", new BufferAttribute(moteSeeds, 1));
+  track(moteGeo);
+  const moteMat = new ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uSize: { value: quality.isCompact ? 0.36 : 0.48 },
+      uMotion: { value: motion },
+    },
+    vertexShader: moteVertex,
+    fragmentShader: moteFragment,
+    transparent: true,
+    blending: AdditiveBlending,
+    depthWrite: false,
+  });
+  track(moteMat);
+  const motes = new Points(moteGeo, moteMat);
+  motes.frustumCulled = false;
+  motes.renderOrder = 3;
+  group.add(motes);
+
+  const ringMat = new MeshBasicMaterial({
+    color: 0x2f7a52,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.3,
+    fog: true,
+    depthWrite: false,
+  });
+  track(ringMat);
+  const ring = new Mesh(
+    track(
+      new TorusGeometry(
+        ORBITAL_FRAME.radius,
+        ORBITAL_FRAME.tube,
+        6,
+        quality.lowPower ? 64 : 96,
+      ),
+    ),
+    ringMat,
+  );
+  ring.position.set(ORBITAL_FRAME.x, ORBITAL_FRAME.y, ORBITAL_FRAME.z);
+  ring.rotation.set(ORBITAL_FRAME.rx, ORBITAL_FRAME.ry, ORBITAL_FRAME.rz);
+  group.add(ring);
+
+  const flashMat = new SpriteMaterial({
+    color: 0x7dffe0,
+    transparent: true,
+    opacity: 0,
+    blending: AdditiveBlending,
+    depthWrite: false,
+  });
+  track(flashMat);
+  const flash = new Sprite(flashMat);
+  flash.position.set(-42, 9.5, -34);
+  flash.scale.set(11, 7, 1);
+  flash.visible = liveFx;
+  group.add(flash);
+
+  let nextScan = 17 + Math.random() * 10;
+  let scanStart = -100;
+  let nextFlash = 26 + Math.random() * 18;
+  let flashStart = -100;
 
   return {
     setPulse(value: number) {
@@ -145,24 +525,59 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
     update(time: number) {
       const current = groundMat.uniforms.uFocus.value as number;
       groundMat.uniforms.uFocus.value += (focusTarget - current) * 0.045;
+
       if (quality.reducedMotion) {
         groundMat.uniforms.uTime.value = 0;
         groundMat.uniforms.uPulse.value = 0;
-        key.intensity = 14;
-        fill.intensity = 6;
+        groundMat.uniforms.uScan.value = 0;
+        skyMat.uniforms.uTime.value = 0;
+        skyMat.uniforms.uScan.value = 0;
+        shaftMat.uniforms.uTime.value = 0;
+        moteMat.uniforms.uTime.value = 0;
+        flashMat.opacity = 0;
+        key.intensity = 13;
+        fill.intensity = 5.5;
         return;
       }
+
       groundMat.uniforms.uTime.value = time;
-      key.intensity = 14 + Math.sin(time * 0.35) * 1.6;
-      fill.intensity = 6 + Math.cos(time * 0.22) * 1.0;
-      stars.rotation.y = time * 0.002;
+      skyMat.uniforms.uTime.value = time;
+      shaftMat.uniforms.uTime.value = time;
+      moteMat.uniforms.uTime.value = time;
+      key.intensity = 13.5 + Math.sin(time * 0.28) * 1.1;
+      fill.intensity = 5.6 + Math.cos(time * 0.19) * 0.7;
+
+      let scan = 0;
+      let scanX = -80;
+      if (liveFx) {
+        if (time > nextScan) {
+          scanStart = time;
+          nextScan = time + 16 + Math.random() * 14;
+        }
+        const scanAge = time - scanStart;
+        if (scanAge >= 0 && scanAge < 3.6) {
+          const t = scanAge / 3.6;
+          scan = Math.sin(t * Math.PI) * 0.85;
+          scanX = -62 + t * 124;
+        }
+        if (time > nextFlash) {
+          flashStart = time;
+          nextFlash = time + 22 + Math.random() * 26;
+        }
+        const flashAge = time - flashStart;
+        flashMat.opacity =
+          flashAge >= 0 && flashAge < 0.7 ? Math.sin((flashAge / 0.7) * Math.PI) * 0.16 : 0;
+      }
+
+      groundMat.uniforms.uScan.value = scan;
+      groundMat.uniforms.uScanX.value = scanX;
+      skyMat.uniforms.uScan.value = scan;
+      skyMat.uniforms.uScanX.value = scanX;
     },
     dispose() {
-      ground.geometry.dispose();
-      groundMat.dispose();
-      starGeo.dispose();
-      (stars.material as PointsMaterial).dispose();
       scene.remove(group);
+      megas.dispose();
+      disposables.forEach((item) => item.dispose());
     },
   };
 }

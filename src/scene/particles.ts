@@ -50,7 +50,7 @@ export function createParticles(scene: Scene, quality: QualityProfile): Particle
     const radius = 14 + Math.random() * 24;
     const angle = Math.random() * Math.PI * 2;
     positions[i * 3] = Math.cos(angle) * radius;
-    positions[i * 3 + 1] = 2 + Math.random() * 11;
+    positions[i * 3 + 1] = Math.pow(Math.random(), 1.35) * 10;
     positions[i * 3 + 2] = Math.sin(angle) * radius * 0.42;
     seeds[i] = Math.random();
   }
