@@ -22,23 +22,32 @@ export type ShaftAnchor = {
 };
 
 export const SHAFT_ANCHORS: readonly ShaftAnchor[] = [
-  { x: -19.8, z: -13.2, height: 23, width: 1.5 },
-  { x: 23.6, z: -14.8, height: 20, width: 1.2 },
-  { x: 6.1, z: 12.1, height: 18, width: 1.05 },
-  { x: -30.2, z: 7.4, height: 22, width: 1.3 },
-  { x: 31.4, z: -6.2, height: 16.5, width: 0.95 },
+  { x: 21.8, z: 7.2, height: 13.5, width: 1.8 },
+  { x: -21.4, z: 6.6, height: 12.4, width: 1.55 },
+  { x: 19.6, z: -8.8, height: 11.2, width: 1.25 },
+  { x: -19.2, z: -9.2, height: 10.6, width: 1.15 },
+  { x: 6.4, z: 9.8, height: 9.4, width: 1.05 },
 ];
 
 export const ORBITAL_FRAME = {
-  x: 7.5,
-  y: 16.2,
-  z: -50,
-  radius: 17.2,
-  tube: 0.04,
-  rx: 0.74,
-  ry: 0.16,
-  rz: 0.36,
+  x: 1.0,
+  y: 5.2,
+  z: -14.8,
+  radius: 7.4,
+  tube: 0.075,
+  rx: 0.18,
+  ry: 0.22,
+  rz: 0.08,
 };
+
+const LANDMARKS: readonly MegaSlab[] = [
+  { x: 26.2, y: 3.1, z: 6.4, sx: 3.2, sy: 6.2, sz: 6.4, yaw: -0.2 },
+  { x: -26.0, y: 3.0, z: 6.0, sx: 3.0, sy: 6.0, sz: 6.2, yaw: 0.18 },
+  { x: 25.4, y: 2.6, z: -8.2, sx: 5.0, sy: 5.2, sz: 3.4, yaw: 0.4 },
+  { x: -25.2, y: 2.5, z: -8.4, sx: 4.8, sy: 5.0, sz: 3.2, yaw: -0.36 },
+  { x: 27.0, y: 2.2, z: 1.2, sx: 2.6, sy: 4.4, sz: 8.8, yaw: 0.06 },
+  { x: -26.8, y: 2.1, z: 1.0, sx: 2.5, sy: 4.2, sz: 8.4, yaw: -0.05 },
+];
 
 export function isOutsideDistrict(x: number, z: number, clearance = 0): boolean {
   return (
@@ -69,15 +78,17 @@ function overlapsDistrict(x: number, z: number, sx: number, sz: number): boolean
  */
 export function createMegaSlabs(count: number): MegaSlab[] {
   const rand = mulberry32(0x51c70c17);
-  const slabs: MegaSlab[] = [];
+  const slabs: MegaSlab[] = LANDMARKS.slice(0, Math.min(count, LANDMARKS.length)).map((slab) => ({
+    ...slab,
+  }));
   let attempts = 0;
 
   while (slabs.length < count && attempts < 400) {
     attempts += 1;
-    const angle = rand() * Math.PI * 2;
-    const radius = 36 + rand() * 30;
+    const angle = Math.PI + (rand() - 0.5) * Math.PI * 1.45;
+    const radius = 27 + rand() * 18;
     const x = Math.cos(angle) * radius;
-    const z = Math.sin(angle) * radius * 0.7;
+    const z = Math.sin(angle) * radius * 0.78;
     const kind = rand();
     const yaw = angle + Math.PI * 0.5 + (rand() - 0.5) * 0.45;
 

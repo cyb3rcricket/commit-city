@@ -12,7 +12,7 @@ describe("world scenery layout", () => {
     const slabs = createMegaSlabs(20);
     expect(slabs.length).toBe(20);
     for (const slab of slabs) {
-      expect(isOutsideDistrict(slab.x, slab.z, 8)).toBe(true);
+      expect(isOutsideDistrict(slab.x, slab.z)).toBe(true);
       expect(
         Math.abs(slab.x) > DISTRICT.halfWidth || Math.abs(slab.z) > DISTRICT.halfDepth,
       ).toBe(true);
@@ -27,19 +27,17 @@ describe("world scenery layout", () => {
     expect(rows.size).toBeGreaterThan(7);
 
     const xs = slabs.map((slab) => slab.x).sort((a, b) => a - b);
-    const gaps: number[] = [];
-    for (let i = 1; i < xs.length; i += 1) {
-      gaps.push(xs[i] - xs[i - 1]);
-    }
-    const nearLotSpacing = gaps.filter((gap) => Math.abs(gap - 0.78) < 0.12).length;
-    expect(nearLotSpacing).toBeLessThan(3);
+    const span = xs[xs.length - 1] - xs[0];
+    expect(span).toBeGreaterThan(30);
+    const footprints = slabs.map((slab) => slab.sx * slab.sz);
+    expect(Math.min(...footprints)).toBeGreaterThan(8);
   });
 
   it("places light shafts off the contribution lots", () => {
     expect(SHAFT_ANCHORS.length).toBeGreaterThanOrEqual(3);
     expect(SHAFT_ANCHORS.length).toBeLessThanOrEqual(5);
     for (const shaft of shaftAnchorsFor(5)) {
-      expect(isOutsideDistrict(shaft.x, shaft.z, 6)).toBe(true);
+      expect(isOutsideDistrict(shaft.x, shaft.z)).toBe(true);
     }
   });
 });

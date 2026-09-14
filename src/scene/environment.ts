@@ -11,6 +11,7 @@ import {
   HemisphereLight,
   InstancedMesh,
   Mesh,
+  MeshBasicMaterial,
   Object3D,
   PlaneGeometry,
   PointLight,
@@ -30,8 +31,8 @@ import {
   shaftAnchorsFor,
 } from "./worldLayout";
 
-const FOG_COLOR = 0x050807;
-const FOG_DENSITY = 0.018;
+const FOG_COLOR = 0x060a08;
+const FOG_DENSITY = 0.011;
 
 const groundVertex = /* glsl */ `
   varying vec3 vWorld;
@@ -58,60 +59,58 @@ const groundFragment = /* glsl */ `
     return 1.0 - min(l.x, l.y);
   }
 
-  float saturate(float x) {
-    return clamp(x, 0.0, 1.0);
-  }
-
   void main() {
     vec2 p = vWorld.xz;
+    float px = p.x;
+    float pz = p.y;
     float dist = length(p);
-    float near = mix(20.0, 12.0, uFocus);
-    float far = mix(58.0, 28.0, uFocus);
+    float near = mix(22.0, 12.0, uFocus);
+    float far = mix(64.0, 30.0, uFocus);
     float fade = smoothstep(far, near, dist);
 
-    float inDistrict = smoothstep(22.4, 17.5, abs(p.x)) * smoothstep(3.6, 1.5, abs(p.z));
+    float inDistrict = smoothstep(22.4, 17.5, abs(px)) * smoothstep(3.6, 1.5, abs(pz));
     float outside = 1.0 - inDistrict;
 
     float fine = lineGrid(p, 0.72, 0.022);
     float coarse = lineGrid(p, 0.11, 0.01);
-    float pulse = 0.5 + 0.5 * sin(p.x * 0.2 - uTime * 0.32 * uMotion);
-    float wave = 1.0 - abs(fract((p.x + 26.0) / 54.0 - uPulse) * 2.0 - 1.0);
+    float pulse = 0.5 + 0.5 * sin(px * 0.2 - uTime * 0.32 * uMotion);
+    float wave = 1.0 - abs(fract((px + 26.0) / 54.0 - uPulse) * 2.0 - 1.0);
     wave = smoothstep(0.35, 1.0, wave);
 
-    vec3 base = vec3(0.008, 0.012, 0.01);
+    vec3 base = vec3(0.016, 0.028, 0.022);
     vec3 green = vec3(0.12, 0.95, 0.45);
     vec3 cyan = vec3(0.55, 0.95, 0.92);
-    float dim = mix(1.0, 0.3, uFocus);
+    float dim = mix(1.0, 0.32, uFocus);
 
     vec3 color = base;
-    color += green * fine * 0.042 * dim;
-    color += mix(green, cyan, 0.35) * coarse * 0.11 * dim;
-    color += green * wave * uPulse * 0.11;
-    color += cyan * pulse * 0.006 * dim;
+    color += green * fine * 0.07 * dim;
+    color += mix(green, cyan, 0.35) * coarse * 0.16 * dim;
+    color += green * wave * uPulse * 0.12;
+    color += cyan * pulse * 0.01 * dim;
 
     float ring = smoothstep(0.22, 0.0, abs(dist - 21.0));
-    color += green * ring * 0.045 * dim;
+    color += green * ring * 0.07 * dim;
 
-    float smear = pow(1.0 - saturate(abs(p.z) / 3.8), 3.2) * inDistrict;
-    smear *= 0.55 + 0.45 * smoothstep(18.0, 4.0, abs(p.x));
-    color += vec3(0.04, 0.14, 0.08) * smear * 0.38 * dim;
-    float glass = pow(1.0 - saturate(abs(p.z) * 0.22), 10.0) * inDistrict;
-    color += vec3(0.28, 0.7, 0.55) * glass * 0.035 * dim;
+    float smear = pow(1.0 - saturate(abs(pz) / 3.8), 3.2) * inDistrict;
+    smear *= 0.55 + 0.45 * smoothstep(18.0, 4.0, abs(px));
+    color += vec3(0.05, 0.16, 0.1) * smear * 0.55 * dim;
+    float glass = pow(1.0 - saturate(abs(pz) * 0.22), 10.0) * inDistrict;
+    color += vec3(0.32, 0.75, 0.58) * glass * 0.05 * dim;
 
-    float pathA = exp(-pow(p.z - (8.7 + 0.65 * sin(p.x * 0.075)), 2.0) * 13.0);
-    float pathB = exp(-pow(p.z + (9.2 + 0.5 * cos(p.x * 0.055)), 2.0) * 13.0);
-    float pathC = exp(-pow(p.x - (29.5 + 0.35 * sin(p.z * 0.18)), 2.0) * 9.0);
-    float ringRoad = exp(-pow(dist - 34.0, 2.0) * 3.6);
-    float highways = (pathA + pathB + pathC * 0.75 + ringRoad * 0.55) * outside;
-    float packet = smoothstep(0.07, 0.0, abs(fract(p.x * 0.032 - uTime * 0.038) - 0.5));
-    float flow = mix(0.22, 0.22 + packet * 0.55, uMotion);
-    color += green * highways * 0.07 * flow * dim;
-    color += cyan * highways * packet * uMotion * 0.03 * dim;
+    float pathA = exp(-pow(pz - (8.4 + 0.65 * sin(px * 0.075)), 2.0) * 11.0);
+    float pathB = exp(-pow(pz + (8.9 + 0.5 * cos(px * 0.055)), 2.0) * 11.0);
+    float pathC = exp(-pow(px - (27.8 + 0.35 * sin(pz * 0.18)), 2.0) * 8.0);
+    float ringRoad = exp(-pow(dist - 31.5, 2.0) * 3.2);
+    float highways = (pathA + pathB + pathC * 0.8 + ringRoad * 0.62) * outside;
+    float packet = smoothstep(0.08, 0.0, abs(fract(px * 0.032 - uTime * 0.038) - 0.5));
+    float flow = mix(0.34, 0.34 + packet * 0.7, uMotion);
+    color += green * highways * 0.2 * flow * dim;
+    color += cyan * highways * packet * uMotion * 0.07 * dim;
 
-    float scanBand = smoothstep(1.8, 0.0, abs(p.x - uScanX)) * uScan * outside;
-    color += mix(green, cyan, 0.25) * scanBand * 0.07;
+    float scanBand = smoothstep(2.2, 0.0, abs(px - uScanX)) * uScan * outside;
+    color += mix(green, cyan, 0.25) * scanBand * 0.08;
 
-    color = min(color, vec3(0.09, 0.16, 0.12));
+    color = min(color, vec3(0.14, 0.24, 0.18));
     gl_FragColor = vec4(color, fade);
   }
 `;
@@ -140,60 +139,27 @@ const skyFragment = /* glsl */ `
   void main() {
     vec3 dir = normalize(vDir);
     float h = dir.y;
-    vec3 zenith = vec3(0.004, 0.007, 0.006);
-    vec3 mid = vec3(0.012, 0.022, 0.018);
-    vec3 horizon = vec3(0.02, 0.038, 0.03);
-    vec3 color = mix(horizon, mid, smoothstep(-0.12, 0.22, h));
-    color = mix(color, zenith, smoothstep(0.18, 0.78, h));
+    vec3 zenith = vec3(0.02, 0.034, 0.028);
+    vec3 mid = vec3(0.05, 0.09, 0.07);
+    vec3 horizon = vec3(0.08, 0.15, 0.11);
+    vec3 color = mix(horizon, mid, smoothstep(-0.14, 0.2, h));
+    color = mix(color, zenith, smoothstep(0.16, 0.76, h));
 
-    float strata = smoothstep(0.12, 0.0, abs(fract(h * 5.2 + dir.x * 0.15) - 0.5));
-    color += vec3(0.04, 0.12, 0.08) * strata * 0.045 * uRich;
+    float strata = smoothstep(0.14, 0.0, abs(fract(h * 4.6 + dir.x * 0.18) - 0.5));
+    color += vec3(0.07, 0.2, 0.12) * strata * 0.085 * uRich;
 
-    float veil = pow(max(0.0, 1.0 - abs(h - 0.04) * 3.4), 2.0);
-    color += vec3(0.03, 0.08, 0.06) * veil * 0.12;
+    float columns = smoothstep(0.06, 0.0, abs(fract(dir.x * 3.4) - 0.5));
+    color += vec3(0.05, 0.14, 0.1) * columns * (1.0 - smoothstep(0.05, 0.55, h)) * 0.07 * uRich;
+
+    float veil = pow(max(0.0, 1.0 - abs(h - 0.02) * 2.8), 2.0);
+    color += vec3(0.05, 0.12, 0.09) * veil * 0.18;
 
     float grain = hash(dir.xz * 18.0 + floor(uTime * 0.02 * uMotion));
-    color += vec3(0.03, 0.07, 0.055) * grain * 0.025 * uRich;
+    color += vec3(0.04, 0.09, 0.07) * grain * 0.035 * uRich;
 
     float scan = smoothstep(0.045, 0.0, abs(dir.x - uScanX * 0.012)) * uScan;
-    color += vec3(0.18, 0.7, 0.4) * scan * 0.04;
+    color += vec3(0.18, 0.7, 0.4) * scan * 0.05;
 
-    gl_FragColor = vec4(color, 1.0);
-  }
-`;
-
-const megaVertex = /* glsl */ `
-  varying vec3 vWorld;
-  varying vec3 vNormalW;
-  void main() {
-    #ifdef USE_INSTANCING
-      vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
-      vNormalW = normalize(mat3(modelMatrix * instanceMatrix) * normal);
-    #else
-      vec4 world = modelMatrix * vec4(position, 1.0);
-      vNormalW = normalize(mat3(modelMatrix) * normal);
-    #endif
-    vWorld = world.xyz;
-    gl_Position = projectionMatrix * viewMatrix * world;
-  }
-`;
-
-const megaFragment = /* glsl */ `
-  uniform vec3 uFogColor;
-  uniform float uFogDensity;
-  varying vec3 vWorld;
-  varying vec3 vNormalW;
-
-  void main() {
-    vec3 n = normalize(vNormalW);
-    float rim = pow(1.0 - max(dot(n, vec3(0.0, 0.85, 0.2)), 0.0), 2.4);
-    float top = smoothstep(0.62, 0.95, n.y);
-    vec3 color = vec3(0.014, 0.02, 0.017);
-    color += vec3(0.03, 0.055, 0.04) * rim * 0.28;
-    color += vec3(0.02, 0.04, 0.03) * top * 0.22;
-    float dist = length(vWorld);
-    float fog = 1.0 - exp(-uFogDensity * dist * 1.15);
-    color = mix(color, uFogColor, clamp(fog, 0.0, 0.9));
     gl_FragColor = vec4(color, 1.0);
   }
 `;
@@ -219,8 +185,8 @@ const shaftFragment = /* glsl */ `
     float beam = pow(1.0 - abs(vUv.x - 0.5) * 2.0, 2.6);
     float rise = smoothstep(0.0, 0.07, vUv.y) * (1.0 - smoothstep(0.42, 1.0, vUv.y));
     float breathe = 0.86 + 0.14 * sin(uTime * 0.17 + vWorld.x * 0.08) * uMotion;
-    float alpha = beam * rise * breathe * 0.055;
-    vec3 color = mix(vec3(0.08, 0.7, 0.32), vec3(0.45, 0.95, 0.82), beam * 0.35);
+    float alpha = beam * rise * breathe * 0.2;
+    vec3 color = mix(vec3(0.1, 0.75, 0.36), vec3(0.45, 0.95, 0.82), beam * 0.35);
     gl_FragColor = vec4(color, alpha);
   }
 `;
@@ -270,28 +236,6 @@ const moteFragment = /* glsl */ `
     float glow = smoothstep(0.5, 0.0, d);
     vec3 color = mix(vec3(0.1, 0.55, 0.28), vec3(0.55, 0.92, 0.82), glow * 0.4);
     gl_FragColor = vec4(color, glow * vAlpha);
-  }
-`;
-
-const ringVertex = /* glsl */ `
-  varying vec3 vWorld;
-  void main() {
-    vec4 world = modelMatrix * vec4(position, 1.0);
-    vWorld = world.xyz;
-    gl_Position = projectionMatrix * viewMatrix * world;
-  }
-`;
-
-const ringFragment = /* glsl */ `
-  uniform vec3 uFogColor;
-  uniform float uFogDensity;
-  varying vec3 vWorld;
-  void main() {
-    vec3 color = vec3(0.05, 0.14, 0.09);
-    float dist = length(vWorld);
-    float fog = 1.0 - exp(-uFogDensity * dist);
-    color = mix(color, uFogColor, clamp(fog, 0.0, 0.85));
-    gl_FragColor = vec4(color, 0.22);
   }
 `;
 
@@ -387,10 +331,10 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
     starGeo,
     track(
       new PointsMaterial({
-        color: new Color(0x6ee6a8),
-        size: 0.05,
+        color: new Color(0x7dffb5),
+        size: 0.07,
         transparent: true,
-        opacity: 0.32,
+        opacity: 0.42,
         blending: AdditiveBlending,
         depthWrite: false,
       }),
@@ -400,15 +344,24 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
 
   const dummy = new Object3D();
   const slabs = createMegaSlabs(quality.megaCount);
-  const megaMat = new ShaderMaterial({
-    uniforms: {
-      uFogColor: { value: new Color(FOG_COLOR) },
-      uFogDensity: { value: FOG_DENSITY },
-    },
-    vertexShader: megaVertex,
-    fragmentShader: megaFragment,
+  const megaMat = new MeshBasicMaterial({
+    color: 0x2c6750,
+    fog: true,
   });
   track(megaMat);
+  const ridgeMat = new MeshBasicMaterial({
+    color: 0x1c3a2d,
+    fog: true,
+  });
+  track(ridgeMat);
+  const farRidge = new Mesh(track(new BoxGeometry(32, 2.6, 2.4)), ridgeMat);
+  farRidge.position.set(0.8, 5.9, -7.6);
+  farRidge.rotation.y = 0.04;
+  group.add(farRidge);
+  const farRidgeB = new Mesh(track(new BoxGeometry(14, 3.4, 2.1)), ridgeMat);
+  farRidgeB.position.set(12.4, 6.4, -8.8);
+  farRidgeB.rotation.y = -0.18;
+  group.add(farRidgeB);
   const megas = new InstancedMesh(track(new BoxGeometry(1, 1, 1)), megaMat, Math.max(slabs.length, 1));
   megas.frustumCulled = false;
   for (let i = 0; i < slabs.length; i += 1) {
@@ -452,7 +405,7 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
   group.add(shafts);
 
   const hazeMat = new ShaderMaterial({
-    uniforms: { uAlpha: { value: 0.055 } },
+    uniforms: { uAlpha: { value: 0.1 } },
     vertexShader: hazeVertex,
     fragmentShader: hazeFragment,
     transparent: true,
@@ -468,7 +421,7 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
 
   if (quality.richSky) {
     const hazeHighMat = new ShaderMaterial({
-      uniforms: { uAlpha: { value: 0.03 } },
+      uniforms: { uAlpha: { value: 0.05 } },
       vertexShader: hazeVertex,
       fragmentShader: hazeFragment,
       transparent: true,
@@ -516,16 +469,13 @@ export function createEnvironment(scene: Scene, quality: QualityProfile): Enviro
   motes.renderOrder = 3;
   group.add(motes);
 
-  const ringMat = new ShaderMaterial({
-    uniforms: {
-      uFogColor: { value: new Color(FOG_COLOR) },
-      uFogDensity: { value: FOG_DENSITY },
-    },
-    vertexShader: ringVertex,
-    fragmentShader: ringFragment,
-    transparent: true,
-    depthWrite: false,
+  const ringMat = new MeshBasicMaterial({
+    color: 0x2f7a52,
     wireframe: true,
+    transparent: true,
+    opacity: 0.3,
+    fog: true,
+    depthWrite: false,
   });
   track(ringMat);
   const ring = new Mesh(
